@@ -56,6 +56,8 @@ ALLOWED_CV_EXTENSIONS = {".pdf", ".docx", ".txt"}
 # Create app using factory function
 from interview_app import create_app
 app = create_app()
+UPLOAD_DIR = app.config["UPLOAD_DIR"]
+GENERATED_DIR = app.config["GENERATED_DIR"]
 
 
 app.register_blueprint(auth_bp)
