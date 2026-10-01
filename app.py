@@ -90,7 +90,7 @@ def index():
     return render_template(
         "index.html",
         providers=available_providers(),
-        default_provider=os.getenv("LLM_PROVIDER", "claude"),
+        default_provider=os.getenv("LLM_PROVIDER", "openai"),
         question_groups=groups,
         interview_roles=InterviewRole.all_sorted(),
         system_prompts=system_prompts,

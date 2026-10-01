@@ -53,14 +53,10 @@
         </div>
         <div class="card-body li-tabs">
           <div class="tabs" role="radiogroup" aria-label="How to add LinkedIn info">
-            <input type="radio" name="li_mode" id="li-paste" value="paste" checked form="li-mode-dummy">
-            <label for="li-paste">Paste text</label>
-            <input type="radio" name="li_mode" id="li-upload" value="upload" form="li-mode-dummy">
+            <input type="radio" name="li_mode" id="li-upload" value="upload" checked form="li-mode-dummy">
             <label for="li-upload">Upload PDF export</label>
-          </div>
-          <div class="tab-panel tab-paste">
-            <textarea name="linkedin_text" rows="7" aria-label="LinkedIn profile text"
-                      placeholder="Copy everything from the candidate's LinkedIn profile and paste it here"></textarea>
+            <input type="radio" name="li_mode" id="li-paste" value="paste" form="li-mode-dummy">
+            <label for="li-paste">Paste text</label>
           </div>
           <div class="tab-panel tab-upload">
             <div class="dropzone compact" data-dropzone>
@@ -71,6 +67,10 @@
                 <span class="dropzone-meta" data-default="On the profile, open More and choose Save to PDF">On the profile, open More and choose Save to PDF</span>
               </span>
             </div>
+          </div>
+          <div class="tab-panel tab-paste">
+            <textarea name="linkedin_text" rows="7" aria-label="LinkedIn profile text"
+                      placeholder="Copy everything from the candidate's LinkedIn profile and paste it here"></textarea>
           </div>
         </div>
       </section>
