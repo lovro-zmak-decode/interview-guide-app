@@ -3,6 +3,17 @@
 {% block auth_content %}
 <h1>Log in</h1>
 <p class="lede">Accounts are invite-only. If you don't have one, ask an admin.</p>
+
+<!-- Google OAuth Button (only shown if configured) -->
+{% if config.get('GOOGLE_CLIENT_ID') %}
+<div style="margin-bottom: 1.5rem;">
+  <a href="{{ url_for('google_auth.login') }}" class="btn btn-secondary btn-lg btn-block">
+    Sign in with Google
+  </a>
+</div>
+<div style="text-align: center; margin: 1rem 0; color: var(--text-secondary);">or</div>
+{% endif %}
+
 <form action="{{ url_for('auth.login') }}" method="post">
   <label class="field">
     <span class="label">Email</span>

@@ -84,7 +84,7 @@ _PROVIDERS = {
 
 def get_provider(name: str | None = None) -> LLMProvider:
     """Instantiate the requested provider (or the env default if none given)."""
-    key = (name or os.getenv("LLM_PROVIDER", "claude")).lower()
+    key = (name or os.getenv("LLM_PROVIDER", "openai")).lower()
     if key not in _PROVIDERS:
         raise LLMConfigError(f"Unknown LLM provider: {key}. Available: {list(_PROVIDERS)}")
     return _PROVIDERS[key]()
