@@ -1,44 +1,67 @@
 {% extends "base.html" %}
-{% block title %}System Prompts{% endblock %}
+{% block title %}System prompts{% endblock %}
 {% block content %}
-  <h1>System Prompts</h1>
-  <p class="subtitle">Prompt templates sent to the LLM. The interviewer picks which prompt to use
-    from a dropdown on the "Generate guide" page for each guide — there is no fallback, so a guide
-    can't be generated until at least one prompt exists and is selected.</p>
+<header class="page-header">
+  <div>
+    <p class="eyebrow">Settings</p>
+    <h1>System prompts</h1>
+    <p class="lede">The instructions sent to the model. Interviewers choose a prompt for each guide.
+      There's no built-in default, so at least one prompt has to exist before anyone can generate a guide.</p>
+  </div>
+</header>
 
-  <fieldset>
-    <legend>New prompt</legend>
-    <form action="{{ url_for('system_prompts.create_prompt') }}" method="post" class="inline-form">
-      <input type="text" name="name" placeholder="Prompt name" required>
-      <input type="text" name="type" placeholder="Type" value="technical" required>
-      <button type="submit" class="btn-primary">Create</button>
-    </form>
-  </fieldset>
-
-  {% if prompts %}
-    <div class="rowlist" style="--cols: 2fr 1fr 1fr auto;">
-      <div class="rowlist-row rowlist-heading">
-        <div class="rowlist-cell">Name</div>
-        <div class="rowlist-cell">Type</div>
-        <div class="rowlist-cell">Last updated</div>
-        <div class="rowlist-cell"></div>
+<div class="split">
+  <div>
+    {% if prompts %}
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>Name</th><th>Type</th><th>Last updated</th><th><span class="sr-only">Actions</span></th></tr></thead>
+          <tbody>
+            {% for p in prompts %}
+              <tr>
+                <td data-label="Name"><a class="row-link" href="{{ url_for('system_prompts.edit_prompt', prompt_id=p.id) }}">{{ p.name }}</a>
+                  {% if not p.content.strip() %}<span class="badge badge-danger" style="margin-left:6px">Empty</span>{% endif %}</td>
+                <td data-label="Type"><span class="badge">{{ p.type }}</span></td>
+                <td data-label="Updated" class="muted">{{ p.updated_at.strftime("%d %b %Y, %H:%M") if p.updated_at else "–" }}</td>
+                <td class="cell-actions">
+                  <div class="row">
+                    <a class="btn btn-outline btn-sm" href="{{ url_for('system_prompts.edit_prompt', prompt_id=p.id) }}">{{ icon("edit", 16) }}Edit</a>
+                    <form action="{{ url_for('system_prompts.delete_prompt', prompt_id=p.id) }}" method="post"
+                          data-confirm="Delete the prompt “{{ p.name }}”? This can't be undone.">
+                      <button type="submit" class="btn btn-ghost btn-sm btn-icon is-danger" aria-label="Delete {{ p.name }}" title="Delete">{{ icon("trash", 16) }}</button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
-      {% for p in prompts %}
-        <div class="rowlist-row">
-          <div class="rowlist-cell">{{ p.name }}</div>
-          <div class="rowlist-cell">{{ p.type }}</div>
-          <div class="rowlist-cell">{{ p.updated_at.strftime("%Y-%m-%d %H:%M") if p.updated_at else "-" }}</div>
-          <div class="rowlist-cell rowlist-actions">
-            <a class="btn-secondary btn-sm" href="{{ url_for('system_prompts.edit_prompt', prompt_id=p.id) }}">edit</a>
-            <form action="{{ url_for('system_prompts.delete_prompt', prompt_id=p.id) }}" method="post" class="inline-form"
-                  onsubmit="return confirm('Delete prompt {{ p.name }}?');">
-              <button type="submit" class="btn-danger btn-sm">delete</button>
-            </form>
-          </div>
-        </div>
-      {% endfor %}
-    </div>
-  {% else %}
-    <p>No system prompts yet. Create one above.</p>
-  {% endif %}
+    {% else %}
+      <div class="empty">
+        <div class="empty-icon">{{ icon("prompt", 22) }}</div>
+        <h3>No system prompts yet</h3>
+        <p>Nobody can generate a guide until there's a prompt. Create the first one.</p>
+      </div>
+    {% endif %}
+  </div>
+
+  <aside class="split-aside">
+    <section class="card">
+      <div class="card-head"><h3>New prompt</h3></div>
+      <form class="card-body" action="{{ url_for('system_prompts.create_prompt') }}" method="post">
+        <label class="field">
+          <span class="label">Name</span>
+          <input type="text" name="name" placeholder="e.g. Technical first interview" required>
+        </label>
+        <label class="field">
+          <span class="label">Type</span>
+          <input type="text" name="type" value="technical" required>
+        </label>
+        <button type="submit" class="btn btn-dark btn-block" style="margin-top:16px">{{ icon("plus", 16) }}Create and edit</button>
+        <p class="hint">You'll write the prompt text on the next screen.</p>
+      </form>
+    </section>
+  </aside>
+</div>
 {% endblock %}

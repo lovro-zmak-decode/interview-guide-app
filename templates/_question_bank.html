@@ -1,0 +1,176 @@
+{#- Question bank pages, shared by "My questions" (bp="questions") and
+    "Shared questions" (bp="shared_questions"). Imported "with context". -#}
+{% from "_icons.html" import icon %}
+
+{% macro import_help() %}
+  <p class="small muted">Format the Word file with heading styles:</p>
+  <ul class="bullets small" style="margin-top:8px">
+    <li><strong>Heading 2</strong> starts a new group</li>
+    <li><strong>Heading 3</strong> starts a question</li>
+    <li>Plain paragraphs under a question become its explanation, one point per paragraph</li>
+  </ul>
+{% endmacro %}
+
+{% macro group_list(bp, groups, shared=False) %}
+<div class="split">
+  <div>
+    {% if groups %}
+      <div class="group-list">
+        {% for group in groups %}
+          {% set n = group.questions|length %}
+          <div class="group-row">
+            <span class="group-icon">{{ icon("folder", 20) }}</span>
+            <div class="group-main">
+              <a href="{{ url_for(bp ~ '.group_detail', group_id=group.id) }}">{{ group.name }}</a>
+              <p class="group-meta">{{ n }} question{{ "s" if n != 1 }}{% if shared %} · added by {{ group.owner.email }}{% endif %}</p>
+            </div>
+            <div class="row">
+              <a class="btn btn-outline btn-sm" href="{{ url_for(bp ~ '.group_detail', group_id=group.id) }}">{{ icon("edit", 16) }}Edit</a>
+              {% if n %}
+                <a class="btn btn-ghost btn-sm btn-icon" href="{{ url_for(bp ~ '.preview_group', group_id=group.id) }}"
+                   title="Download a .docx preview" aria-label="Download a .docx preview of {{ group.name }}">{{ icon("download", 16) }}</a>
+              {% endif %}
+              <form action="{{ url_for(bp ~ '.delete_group', group_id=group.id) }}" method="post"
+                    data-confirm="Delete the group “{{ group.name }}” and all {{ n }} of its questions? This can't be undone.">
+                <button type="submit" class="btn btn-ghost btn-sm btn-icon is-danger" title="Delete group" aria-label="Delete group {{ group.name }}">{{ icon("trash", 16) }}</button>
+              </form>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty">
+        <div class="empty-icon">{{ icon("list", 22) }}</div>
+        <h3>No {{ "shared " if shared }}question groups yet</h3>
+        <p>Create a group and add questions by hand, or import a whole set from a Word file.</p>
+      </div>
+    {% endif %}
+  </div>
+
+  <aside class="split-aside">
+    <section class="card">
+      <div class="card-head"><h3>New group</h3></div>
+      <form class="card-body" action="{{ url_for(bp ~ '.create_group') }}" method="post">
+        <label class="field">
+          <span class="label">Group name</span>
+          <input type="text" name="name" placeholder="e.g. Backend fundamentals" required>
+        </label>
+        <button type="submit" class="btn btn-dark btn-block" style="margin-top:14px">{{ icon("plus", 16) }}Create group</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h3>Import from Word</h3></div>
+      <form class="card-body" action="{{ url_for(bp ~ '.import_docx') }}" method="post" enctype="multipart/form-data">
+        <div class="dropzone compact" data-dropzone>
+          <input type="file" name="bank_file" accept=".docx" required aria-label="Question bank .docx file">
+          <span class="dropzone-icon">{{ icon("upload", 18) }}</span>
+          <span class="dropzone-text">
+            <span class="dropzone-title" data-default="Choose a .docx file">Choose a .docx file</span>
+            <span class="dropzone-meta" data-default="or drop it here">or drop it here</span>
+          </span>
+        </div>
+        <details class="disclosure" style="margin-top:12px;border:0">
+          <summary style="padding:4px 0;font-weight:400;font-size:13px;color:var(--blue)">How to format the file<span class="chev">{{ icon("chevron", 14) }}</span></summary>
+          <div class="disclosure-body" style="padding:8px 0 0">{{ import_help() }}</div>
+        </details>
+        <button type="submit" class="btn btn-outline btn-block" style="margin-top:14px">{{ icon("upload", 16) }}Import</button>
+      </form>
+    </section>
+  </aside>
+</div>
+<script>
+  document.querySelectorAll('[data-dropzone]').forEach(function (zone) {
+    var input = zone.querySelector('input[type=file]');
+    var title = zone.querySelector('.dropzone-title');
+    input.addEventListener('change', function () {
+      var f = input.files[0];
+      zone.classList.toggle('has-file', !!f);
+      title.textContent = f ? f.name : title.dataset.default;
+    });
+  });
+</script>
+{% endmacro %}
+
+{% macro group_detail(bp, group, shared=False) %}
+{% set n = group.questions|length %}
+<a class="back-link" href="{{ url_for(bp ~ '.list_groups') }}">{{ icon("arrow-left", 16) }}{{ "Shared questions" if shared else "My questions" }}</a>
+<header class="page-header">
+  <div>
+    <form class="rename" action="{{ url_for(bp ~ '.rename_group', group_id=group.id) }}" method="post" aria-label="Rename group">
+      <h1 class="sr-only">{{ group.name }}</h1>
+      <input type="text" name="name" value="{{ group.name }}" aria-label="Group name" required class="title-input"
+             onfocus="this.form.querySelector('[data-rename]').hidden=false">
+      <button type="submit" class="btn btn-dark btn-sm" data-rename hidden>Save name</button>
+    </form>
+    <p class="lede">{{ n }} question{{ "s" if n != 1 }}{% if shared %} · added by {{ group.owner.email }}{% endif %}. Click the name to rename the group.</p>
+  </div>
+  <div class="actions">
+    {% if n %}
+      <a class="btn btn-outline" href="{{ url_for(bp ~ '.preview_group', group_id=group.id) }}">{{ icon("download", 16) }}Download preview</a>
+    {% endif %}
+    <a class="btn btn-primary" href="#add-question">{{ icon("plus", 16) }}Add question</a>
+  </div>
+</header>
+
+<div class="stack-sm">
+  {% for q in group.questions %}
+    <div class="q-edit" data-dirty-watch>
+      <form id="editq{{ q.id }}" action="{{ url_for(bp ~ '.edit_question', question_id=q.id) }}" method="post">
+        <div class="q-edit-head">
+          <span class="q-num">{{ loop.index }}</span>
+          <input class="q-title-input" type="text" name="question_text" value="{{ q.question_text }}" aria-label="Question {{ loop.index }}" placeholder="Question">
+        </div>
+        <label class="field">
+          <span class="label">Interviewer notes <span class="opt">· one point per line</span></span>
+          <textarea name="explanation" rows="4" placeholder="What a good answer covers, red flags, follow-ups…">{{ q.explanation }}</textarea>
+        </label>
+      </form>
+      <form id="delq{{ q.id }}" action="{{ url_for(bp ~ '.delete_question', question_id=q.id) }}" method="post"
+            data-confirm="Delete question {{ loop.index }}? This can't be undone."></form>
+      <div class="q-edit-foot">
+        <button type="submit" form="editq{{ q.id }}" class="btn btn-dark btn-sm">{{ icon("check", 16) }}Save</button>
+        <span class="dirty-note">Unsaved changes</span>
+        <span class="spacer"></span>
+        <button type="submit" form="delq{{ q.id }}" class="btn btn-ghost btn-sm is-danger">{{ icon("trash", 16) }}Delete</button>
+      </div>
+    </div>
+  {% else %}
+    <div class="empty">
+      <div class="empty-icon">{{ icon("list", 22) }}</div>
+      <h3>This group is empty</h3>
+      <p>Add the first question below.</p>
+    </div>
+  {% endfor %}
+</div>
+
+<section class="card" id="add-question" style="margin-top:28px;scroll-margin-top:24px">
+  <div class="card-head"><h2>Add a question</h2></div>
+  <form class="card-body" action="{{ url_for(bp ~ '.add_question', group_id=group.id) }}" method="post">
+    <label class="field">
+      <span class="label">Question</span>
+      <input type="text" name="question_text" placeholder="e.g. How would you design a paginated REST endpoint?" required>
+    </label>
+    <label class="field">
+      <span class="label">Interviewer notes <span class="opt">· optional, one point per line</span></span>
+      <textarea name="explanation" rows="4" placeholder="What a good answer covers, red flags, follow-ups…"></textarea>
+    </label>
+    <button type="submit" class="btn btn-primary" style="margin-top:16px">{{ icon("plus", 16) }}Add question</button>
+  </form>
+</section>
+<script>
+  // Mark a question card as having unsaved edits, and warn before leaving.
+  var dirty = new Set();
+  document.querySelectorAll('[data-dirty-watch]').forEach(function (card) {
+    var form = card.querySelector('form');
+    card.addEventListener('input', function () { card.classList.add('is-dirty'); dirty.add(card); });
+    form.addEventListener('submit', function () { dirty.delete(card); });
+  });
+  document.querySelectorAll('button[form^="editq"]').forEach(function (b) {
+    b.addEventListener('click', function () { dirty.clear(); });
+  });
+  window.addEventListener('beforeunload', function (e) {
+    if (dirty.size) { e.preventDefault(); e.returnValue = ''; }
+  });
+</script>
+{% endmacro %}

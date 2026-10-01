@@ -1,49 +1,81 @@
 {% extends "base.html" %}
 {% block title %}Users{% endblock %}
 {% block content %}
-  <h1>Users</h1>
-  <p class="subtitle">Create accounts for teammates — there's no public sign-up. Only the
-    superadmin can manage accounts.</p>
+<header class="page-header">
+  <div>
+    <p class="eyebrow">Settings</p>
+    <h1>Users</h1>
+    <p class="lede">Accounts are invite-only, so there's no public sign-up. Create accounts for teammates
+      here. Only the superadmin can see this page.</p>
+  </div>
+</header>
 
-  <div class="rowlist" style="--cols: 2fr 1fr 1fr auto;">
-    <div class="rowlist-row rowlist-heading">
-      <div class="rowlist-cell">Email</div>
-      <div class="rowlist-cell">Role</div>
-      <div class="rowlist-cell">Created</div>
-      <div class="rowlist-cell"></div>
-    </div>
-    {% for u in users %}
-      <div class="rowlist-row">
-        <div class="rowlist-cell">{{ u.email }}</div>
-        <div class="rowlist-cell">{{ u.role }}</div>
-        <div class="rowlist-cell">{{ u.created_at.strftime("%Y-%m-%d") if u.created_at else "-" }}</div>
-        <div class="rowlist-cell rowlist-actions">
-          {% if u.id != current_user.id %}
-          <form action="{{ url_for('auth.delete_user', user_id=u.id) }}" method="post" class="inline-form"
-                onsubmit="return confirm('Delete account {{ u.email }}?');">
-            <button type="submit" class="btn-danger btn-sm">delete</button>
-          </form>
-          {% endif %}
-        </div>
-      </div>
-    {% endfor %}
+{% set role_help = {
+  "user": "Generates guides, sees only their own, manages their own questions.",
+  "admin": "Also manages shared questions, roles and system prompts, and sees all guides.",
+  "superadmin": "Everything, including managing user accounts."
+} %}
+
+<div class="split">
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>User</th><th>Role</th><th>Created</th><th><span class="sr-only">Actions</span></th></tr></thead>
+      <tbody>
+        {% for u in users %}
+          <tr>
+            <td data-label="User">
+              <span class="row" style="flex-wrap:nowrap;min-width:0">
+                <span class="avatar" style="width:28px;height:28px;font-size:12px;background:var(--gray-100);color:var(--gray-700)">{{ u.email[:1]|upper }}</span>
+                <span class="cell-strong" style="overflow-wrap:anywhere">{{ u.email }}</span>
+                {% if u.id == current_user.id %}<span class="badge">You</span>{% endif %}
+              </span>
+            </td>
+            <td data-label="Role"><span class="badge {{ 'badge-dark' if u.role == 'superadmin' else ('badge-blue' if u.role == 'admin') }}" title="{{ role_help.get(u.role, '') }}">{{ u.role|capitalize }}</span></td>
+            <td data-label="Created" class="muted">{{ u.created_at.strftime("%d %b %Y") if u.created_at else "–" }}</td>
+            <td class="cell-actions">
+              {% if u.id != current_user.id %}
+                <form action="{{ url_for('auth.delete_user', user_id=u.id) }}" method="post"
+                      data-confirm="Delete the account for {{ u.email }}? They'll lose access right away.">
+                  <button type="submit" class="btn btn-ghost btn-sm btn-icon is-danger" aria-label="Delete {{ u.email }}" title="Delete account">{{ icon("trash", 16) }}</button>
+                </form>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
 
-  <h2>New user</h2>
-  <form action="{{ url_for('auth.create_user') }}" method="post">
-    <label>Email
-      <input type="email" name="email" required>
-    </label>
-    <label>Password (min. 8 characters)
-      <input type="password" name="password" required minlength="8">
-    </label>
-    <label>Role
-      <select name="role">
-        <option value="user" selected>user</option>
-        <option value="admin">admin</option>
-        <option value="superadmin">superadmin</option>
-      </select>
-    </label>
-    <button type="submit" class="btn-primary">Create user</button>
-  </form>
+  <aside class="split-aside">
+    <section class="card">
+      <div class="card-head"><h3>Add a user</h3></div>
+      <form class="card-body" action="{{ url_for('auth.create_user') }}" method="post">
+        <label class="field">
+          <span class="label">Email</span>
+          <input type="email" name="email" placeholder="name@decode.agency" required autocomplete="off">
+        </label>
+        <label class="field">
+          <span class="label">Temporary password</span>
+          <input type="password" name="password" required minlength="8" autocomplete="new-password">
+          <span class="hint">At least 8 characters. Send it to them separately.</span>
+        </label>
+        <label class="field">
+          <span class="label">Role</span>
+          <select name="role" id="role-select">
+            <option value="user" selected>User</option>
+            <option value="admin">Admin</option>
+            <option value="superadmin">Superadmin</option>
+          </select>
+          <span class="hint" id="role-help">{{ role_help.user }}</span>
+        </label>
+        <button type="submit" class="btn btn-dark btn-block" style="margin-top:16px">{{ icon("plus", 16) }}Create account</button>
+      </form>
+    </section>
+  </aside>
+</div>
+<script>
+  var help = {{ role_help|tojson }};
+  var sel = document.getElementById('role-select');
+  sel.addEventListener('change', function () { document.getElementById('role-help').textContent = help[sel.value] || ''; });
+</script>
 {% endblock %}

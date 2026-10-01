@@ -1,72 +1,127 @@
 {% extends "base.html" %}
-{% block title %}Edit prompt — {{ prompt.name }}{% endblock %}
+{% block title %}{{ prompt.name }} · System prompts{% endblock %}
 {% block content %}
-  <a href="{{ url_for('system_prompts.list_prompts') }}">&larr; All system prompts</a>
-  <h1>{{ prompt.name }}</h1>
+<a class="back-link" href="{{ url_for('system_prompts.list_prompts') }}">{{ icon("arrow-left", 16) }}System prompts</a>
+<header class="page-header">
+  <div>
+    <p class="eyebrow">Edit system prompt</p>
+    <h1>{{ prompt.name }}</h1>
+  </div>
+</header>
 
-  <fieldset>
-    <legend>Available variables</legend>
-    <p class="subtitle">Insert any of these into the content below — they're filled in
-      automatically when a guide is generated. Anything else in curly braces (like a pasted JSON
-      example) is left as-is.</p>
-    <div class="rowlist" style="--cols: 1fr 2fr;">
-      <div class="rowlist-row rowlist-heading">
-        <div class="rowlist-cell">Variable</div>
-        <div class="rowlist-cell">Value at generation time</div>
-      </div>
-      {% for var in variables %}
-        <div class="rowlist-row">
-          <div class="rowlist-cell"><code>{{ '{' }}{{ var.name }}{{ '}' }}</code></div>
-          <div class="rowlist-cell">{{ var.description }}</div>
-        </div>
-      {% endfor %}
-    </div>
-  </fieldset>
-
-  <form action="{{ url_for('system_prompts.update_prompt', prompt_id=prompt.id) }}" method="post">
-    <label>Name
-      <input type="text" name="name" value="{{ prompt.name }}" required>
-    </label>
-    <label>Type
-      <input type="text" name="type" value="{{ prompt.type }}" required>
-    </label>
-    <label>Content
-      <textarea name="content" rows="24">{{ prompt.content }}</textarea>
-    </label>
-
-    <fieldset>
-      <legend>Quick evaluation rows</legend>
-      <p class="subtitle">Guaranteed rows for the "Quick evaluation" table at the end of every
-        generated guide. Columns are fixed (Area, How it looks 5/5, Grade, Note) — only the rows
-        are configurable here. The LLM will try to fill each row in itself, but any row it skips
-        gets added automatically using the "How it looks 5/5" text below. Area/text can use the
-        same variables as the content above, e.g. <code>{{ '{role_title}' }} (domain knowledge)</code>.</p>
-
-      <div id="scoring-rows">
-        {% for row in scoring_rows %}
-          <div class="scoring-row">
-            <input type="text" name="row_area" value="{{ row.area }}" placeholder="Area">
-            <textarea name="row_ideal_signs" rows="3" placeholder="How it looks 5/5">{{ row.ideal_signs }}</textarea>
-            <button type="button" class="btn-danger btn-sm" onclick="this.parentElement.remove()">remove</button>
+<form action="{{ url_for('system_prompts.update_prompt', prompt_id=prompt.id) }}" method="post" id="prompt-form">
+  <div class="split">
+    <div>
+      <section class="card">
+        <div class="card-body">
+          <div class="field-row" style="grid-template-columns:2fr 1fr">
+            <label class="field">
+              <span class="label">Name</span>
+              <input type="text" name="name" value="{{ prompt.name }}" required>
+            </label>
+            <label class="field">
+              <span class="label">Type</span>
+              <input type="text" name="type" value="{{ prompt.type }}" required>
+            </label>
           </div>
-        {% endfor %}
+          <label class="field" style="margin-top:18px">
+            <span class="label">Prompt text</span>
+            <textarea name="content" id="prompt-content" class="code" rows="26" spellcheck="false"
+                      placeholder="Instructions for the model and the JSON shape it should return. Click a variable on the right to insert it at the cursor.">{{ prompt.content }}</textarea>
+            <span class="hint"><span id="char-count">{{ prompt.content|length }}</span> characters</span>
+          </label>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>Quick evaluation rows</h2>
+          <p class="hint">Rows that always appear in the "Quick evaluation" table at the end of each guide.
+            The columns are fixed (Area, What 5/5 looks like, Grade, Note). The model tries to fill these rows itself,
+            and any row it leaves out is added from the text here. You can use variables, e.g.
+            <code>{{ '{role_title}' }} (domain knowledge)</code>.</p>
+        </div>
+        <div class="card-body">
+          <div class="scoring-head"><span>Area</span><span>What 5/5 looks like</span><span></span></div>
+          <div id="scoring-rows">
+            {% for row in scoring_rows %}
+              <div class="scoring-row">
+                <input type="text" name="row_area" value="{{ row.area }}" placeholder="Area" aria-label="Area">
+                <textarea name="row_ideal_signs" rows="2" placeholder="What 5/5 looks like" aria-label="What 5/5 looks like">{{ row.ideal_signs }}</textarea>
+                <button type="button" class="btn btn-ghost btn-sm btn-icon is-danger" aria-label="Remove row" title="Remove row" onclick="this.parentElement.remove()">{{ icon("trash", 16) }}</button>
+              </div>
+            {% endfor %}
+          </div>
+          <button type="button" class="btn btn-outline btn-sm" style="margin-top:14px" onclick="addScoringRow()">{{ icon("plus", 16) }}Add row</button>
+        </div>
+      </section>
+
+      <div class="savebar">
+        <button type="submit" class="btn btn-primary">{{ icon("check", 16) }}Save prompt</button>
+        <a class="btn btn-ghost" href="{{ url_for('system_prompts.list_prompts') }}">Cancel</a>
+        <span class="muted small" id="dirty-flag" hidden>Unsaved changes</span>
       </div>
-      <button type="button" class="btn-secondary btn-sm" onclick="addScoringRow()">add row</button>
-    </fieldset>
+    </div>
 
-    <button type="submit" class="btn-primary">Save prompt</button>
-  </form>
+    <aside class="split-aside">
+      <section class="card">
+        <div class="card-head">
+          <h3>Variables</h3>
+          <p class="hint">Click one to insert it at the cursor. They're filled in when a guide is generated.
+            Anything else in curly braces, like a JSON example, stays as it is.</p>
+        </div>
+        <div class="card-body" style="padding:10px">
+          <div class="var-list">
+            {% for var in variables %}
+              <button type="button" class="var-item" data-insert="{{ '{' }}{{ var.name }}{{ '}' }}">
+                <code>{{ '{' }}{{ var.name }}{{ '}' }}</code>
+                <span>{{ var.description }}</span>
+              </button>
+            {% endfor %}
+          </div>
+        </div>
+      </section>
+    </aside>
+  </div>
+</form>
 
-  <script>
-    function addScoringRow() {
-      var container = document.getElementById('scoring-rows');
-      var row = document.createElement('div');
-      row.className = 'scoring-row';
-      row.innerHTML =
-        '<input type="text" name="row_area" placeholder="Area">' +
-        '<textarea name="row_ideal_signs" rows="3" placeholder="How it looks 5/5"></textarea>' +
-        '<button type="button" class="btn-danger btn-sm" onclick="this.parentElement.remove()">remove</button>';
-      container.appendChild(row);
-    }
-  </script>
+<template id="scoring-row-tpl">
+  <div class="scoring-row">
+    <input type="text" name="row_area" placeholder="Area" aria-label="Area">
+    <textarea name="row_ideal_signs" rows="2" placeholder="What 5/5 looks like" aria-label="What 5/5 looks like"></textarea>
+    <button type="button" class="btn btn-ghost btn-sm btn-icon is-danger" aria-label="Remove row" title="Remove row" onclick="this.parentElement.remove()">{{ icon("trash", 16) }}</button>
+  </div>
+</template>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function addScoringRow() {
+    var row = document.getElementById('scoring-row-tpl').content.firstElementChild.cloneNode(true);
+    document.getElementById('scoring-rows').appendChild(row);
+    row.querySelector('input').focus();
+    markDirty();
+  }
+
+  var content = document.getElementById('prompt-content');
+  var counter = document.getElementById('char-count');
+  content.addEventListener('input', function () { counter.textContent = content.value.length; });
+
+  // Insert a {variable} at the cursor position in the prompt text.
+  document.querySelectorAll('[data-insert]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var text = btn.dataset.insert, s = content.selectionStart, e = content.selectionEnd;
+      content.focus();
+      content.setRangeText(text, s, e, 'end');
+      content.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  });
+
+  // Unsaved-changes guard.
+  var dirty = false, form = document.getElementById('prompt-form');
+  function markDirty() { dirty = true; document.getElementById('dirty-flag').hidden = false; }
+  form.addEventListener('input', markDirty);
+  form.addEventListener('submit', function () { dirty = false; });
+  window.addEventListener('beforeunload', function (e) { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+</script>
 {% endblock %}

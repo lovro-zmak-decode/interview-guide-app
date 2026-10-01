@@ -1,312 +1,627 @@
+/* =====================================================================
+   Interview Prep · DECODE design system
+   Source: DECODE "Slides Template 2020" deck: IBM Plex Sans, rich black,
+   magni-blue as the single accent, lux grays, white. Outline icons with
+   round caps. Everything below is driven by these tokens.
+   ===================================================================== */
 :root {
-  /* Magenta, darkened ~15% three times over from the original #ff00ff (too bright/saturated) */
-  --primary: #9c009c;
-  --primary-hover: #7d007d;
-  /* Indigo — sidebar background and .btn-secondary fill, darkened ~10% (too bright) */
-  --secondary: #440075;
-  --secondary-hover: #320055;
-  /* Dark gold accent — used for plain inline text links (not buttons/nav) */
-  --accent: #8a6314;
-  --accent-hover: #6e4e0f;
+  /* Brand */
+  --ink: #262626;          /* rich black: sidebar, headings, dark buttons */
+  --ink-2: #1c1c1c;
+  --blue: #224afa;         /* magni-blue: primary actions, focus, active */
+  --blue-600: #1a3be0;
+  --blue-50: #eef1ff;
+  --blue-100: #dde3ff;
+
+  /* Neutrals (lux gray scale) */
+  --gray-900: #262626;
+  --gray-700: #595959;
+  --gray-600: #6b6b6b;     /* secondary text, AA on white */
+  --gray-500: #9e9e9e;
+  --gray-400: #b7b7b7;
+  --gray-300: #d6d6d6;
+  --gray-200: #e6e6e6;
+  --gray-100: #f3f3f3;
+  --gray-50:  #f8f8f8;
+  --white: #ffffff;
+
+  /* Status */
+  --danger: #d92d20;
+  --danger-600: #b42318;
+  --danger-50: #fef3f2;
+  --success: #12805c;
+  --success-50: #ecfdf3;
+
+  /* Surfaces */
+  --bg: var(--gray-100);
+  --surface: var(--white);
+  --border: var(--gray-200);
+  --border-strong: var(--gray-300);
+  --text: var(--gray-900);
+  --text-muted: var(--gray-600);
+
+  /* Type */
+  --font: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Shape and depth */
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --shadow-sm: 0 1px 2px rgba(16, 16, 16, 0.06);
+  --shadow: 0 1px 3px rgba(16, 16, 16, 0.06), 0 6px 16px rgba(16, 16, 16, 0.05);
+  --ring: 0 0 0 3px rgba(34, 74, 250, 0.25);
+
+  --sidebar-w: 248px;
 }
+
+/* ---------- Base ---------- */
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  background: #f7f7f8;
-  color: #1a1a1a;
   margin: 0;
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
 }
-/* Plain inline text links (breadcrumbs, "Manage X" hints, etc.) — anything
-   more specific (nav links, .home-icon, .btn-*) already sets its own color
-   via a class selector, which wins over this element selector regardless of
-   source order. */
-a {
-  color: var(--accent);
-}
-a:hover {
-  color: var(--accent-hover);
-}
-/* Topbar spans the full width like a page header; the sidebar + content row
-   sits below it, not beside it. Same background as the sidebar so the two
-   read as one continuous surface. */
-.topbar {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 12px 32px;
-  background: var(--secondary);
-}
-.app-shell {
-  display: flex;
-  min-height: calc(100vh - 57px);
-}
+h1, h2, h3, h4 { margin: 0; line-height: 1.25; color: var(--ink); }
+h1 { font-size: 30px; font-weight: 300; letter-spacing: -0.01em; }
+h2 { font-size: 20px; font-weight: 500; }
+h3 { font-size: 16px; font-weight: 600; }
+h4 { font-size: 14px; font-weight: 600; }
+p { margin: 0; }
+a { color: var(--blue); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code, kbd { font-family: var(--mono); font-size: 0.86em; }
+code { background: var(--gray-100); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; }
+:focus-visible { outline: none; box-shadow: var(--ring); }
+.icon { flex-shrink: 0; display: block; }
+.muted { color: var(--text-muted); }
+.small { font-size: 13px; }
+.mono { font-family: var(--mono); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.stack > * + * { margin-top: 16px; }
+.stack-sm > * + * { margin-top: 8px; }
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.spacer { flex: 1; }
+
+/* ---------- App shell ---------- */
+.shell { display: flex; min-height: 100vh; }
 .sidebar {
-  width: 220px;
-  flex-shrink: 0;
-  background: var(--secondary);
-  padding: 24px 0;
+  position: sticky; top: 0;
+  width: var(--sidebar-w); height: 100vh; flex-shrink: 0;
+  display: flex; flex-direction: column;
+  background: var(--ink); color: #fff;
+  border-right: 1px solid #000;
 }
-.sidebar nav {
-  display: flex;
-  flex-direction: column;
+.sidebar-head { padding: 26px 22px 18px; display: flex; flex-direction: column; gap: 10px; position: relative; }
+.brand { display: inline-flex; }
+.brand img { display: block; height: auto; }
+.product-name { font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gray-400); }
+.nav { flex: 1; overflow-y: auto; padding: 4px 12px 16px; display: flex; flex-direction: column; gap: 2px; }
+.nav-label {
+  margin: 18px 10px 6px; font-size: 11px; font-weight: 500;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--gray-500);
 }
-.sidebar nav a {
-  color: #eee;
-  text-decoration: none;
-  font-size: 0.9rem;
-  padding: 12px 24px;
+.nav-link, .nav-cta {
+  display: flex; align-items: center; gap: 12px;
+  padding: 9px 10px; border-radius: var(--radius-sm);
+  color: #d9d9d9; font-size: 14px; position: relative;
 }
-.sidebar nav a:hover {
-  background: rgba(255,255,255,0.1);
-  color: #fff;
+.nav-link:hover { background: rgba(255, 255, 255, 0.06); color: #fff; text-decoration: none; }
+.nav-link.is-active { background: rgba(255, 255, 255, 0.08); color: #fff; }
+.nav-link.is-active::before {
+  content: ""; position: absolute; left: -12px; top: 6px; bottom: 6px;
+  width: 4px; border-radius: 0 3px 3px 0; background: var(--blue);
 }
-.main-column {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
+.nav-link .icon { color: var(--gray-500); }
+.nav-link.is-active .icon, .nav-link:hover .icon { color: #fff; }
+.nav-cta {
+  margin: 4px 0 2px; background: var(--blue); color: #fff; font-weight: 500; justify-content: flex-start;
 }
-.home-icon {
-  display: inline-flex;
-  color: #fff;
+.nav-cta:hover { background: var(--blue-600); color: #fff; text-decoration: none; }
+.nav-cta.is-active { box-shadow: inset 0 0 0 1px rgba(255,255,255,0.35); }
+.sidebar-foot {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 16px; border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
-.home-icon svg { width: 24px; height: 24px; }
-.home-icon:hover { color: rgba(255,255,255,0.75); }
-.container {
-  max-width: 780px;
-  margin: 40px auto;
-  padding: 32px;
-  background: #fff;
-  border-radius: 10px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+.avatar {
+  width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+  display: grid; place-items: center;
+  background: #3a3a3a; color: #fff; font-size: 13px; font-weight: 600;
 }
-h1 { font-size: 1.6rem; margin-bottom: 4px; }
-h2 { font-size: 1.2rem; margin-top: 32px; border-bottom: 1px solid #eee; padding-bottom: 4px; }
-h3 { font-size: 1rem; margin-top: 20px; color: #444; }
-.subtitle { color: #555; margin-top: 0; }
-label { display: block; margin: 16px 0 4px; font-weight: 600; font-size: 0.9rem; }
-input[type=text], input[type=number], input[type=file], textarea, select {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  font-size: 0.95rem;
-}
-fieldset { border: 1px solid #ddd; border-radius: 8px; margin-top: 20px; }
-.or { text-align: center; color: #999; margin: 4px 0; }
+.whoami { min-width: 0; flex: 1; display: flex; flex-direction: column; line-height: 1.3; }
+.whoami-email { font-size: 13px; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.whoami-role { font-size: 11px; color: var(--gray-500); text-transform: capitalize; }
+.sidebar .icon-btn { color: var(--gray-400); }
+.sidebar .icon-btn:hover { color: #fff; background: rgba(255, 255, 255, 0.08); }
+.sidebar-foot form { margin: 0; }
 
-/* ============================================================
-   BUTTON SYSTEM — single source of truth for every button/button-styled
-   link in the app. Two independent axes, combined via classes:
+.icon-btn {
+  display: inline-grid; place-items: center;
+  width: 34px; height: 34px; padding: 0; margin: 0;
+  border: 0; border-radius: var(--radius-sm); background: transparent;
+  color: var(--gray-600); cursor: pointer;
+}
+.icon-btn:hover { background: var(--gray-100); color: var(--ink); }
 
-   Color  (pick exactly one): .btn-primary / .btn-secondary / .btn-normal / .btn-danger
-     - primary:   main call-to-action of a page (Generate guide, Import, Save)
-                  — a bare <button>/.button with no color class also renders
-                  as "primary" by default.
-     - secondary: a real but lower-emphasis action (Download, Save name)
-     - normal:    plain/neutral outline look (white fill, visible border), for
-                  frequent light-weight actions (Open, Display, View, Select
-                  all) — the least visually prominent color of the four.
-     - danger:    destructive actions (Delete) — always solid red.
+.main { flex: 1; min-width: 0; }
+.page { max-width: 1120px; margin: 0 auto; padding: 40px 48px 80px; }
+.page.page-narrow { max-width: 860px; }
 
-   Size (optional, default is the normal size): .btn-sm / .btn-lg
-
-   Every color variant explicitly re-declares `color` in its own :hover rule.
-   This is required, not decorative — a plain global `a:hover { color: ... }`
-   rule (further up this file) would otherwise win on specificity for any
-   button that's an <a> tag, silently recoloring its text on hover. Buttons
-   must never change text color on hover, only background/border.
-   ============================================================ */
-button, .button, .btn-primary, .btn-secondary, .btn-normal, .btn-danger {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border-radius: 6px;
-  border: 1px solid transparent;
-  cursor: pointer;
-  text-decoration: none;
-  line-height: 1.2;
-  font-family: inherit;
-  /* Normal size (default) */
-  padding: 9px 16px;
-  font-size: 0.9rem;
+/* Mobile: sidebar becomes an off-canvas drawer */
+.mobile-bar, .nav-scrim, .nav-close { display: none; }
+@media (max-width: 900px) {
+  .mobile-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 30;
+    height: 56px; padding: 0 12px 0 16px; background: var(--ink);
+  }
+  .mobile-bar .icon-btn { color: #fff; }
+  .mobile-bar .icon-btn:hover { background: rgba(255,255,255,0.1); }
+  .sidebar {
+    position: fixed; z-index: 50; left: 0; top: 0;
+    transform: translateX(-100%); transition: transform 0.2s ease;
+    box-shadow: 8px 0 30px rgba(0, 0, 0, 0.25);
+  }
+  .nav-toggle:checked ~ .shell .sidebar { transform: none; }
+  .nav-toggle:checked ~ .nav-scrim {
+    display: block; position: fixed; inset: 0; z-index: 40; background: rgba(0, 0, 0, 0.4);
+  }
+  .nav-close { display: inline-grid; position: absolute; top: 18px; right: 12px; }
+  .page { padding: 24px 16px 64px; }
 }
 
-/* Size modifiers */
-.btn-sm { padding: 5px 10px; font-size: 0.78rem; gap: 4px; }
-.btn-lg { padding: 14px 24px; font-size: 1.05rem; gap: 10px; }
-
-/* Color: primary (also the default look for a plain <button>/.button with
-   no explicit color class, and the only variant that reserves top margin
-   for standing alone at the bottom of a form). */
-button, .button, .btn-primary {
-  margin-top: 24px;
-  background: var(--primary);
-  color: #fff;
-  border-color: var(--primary);
+/* ---------- Page header ---------- */
+.back-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; color: var(--text-muted); margin-bottom: 14px;
 }
-button:hover, .button:hover, .btn-primary:hover {
-  background: var(--primary-hover);
-  border-color: var(--primary-hover);
-  color: #fff;
+.back-link:hover { color: var(--ink); text-decoration: none; }
+.page-header { display: flex; align-items: flex-end; gap: 16px 24px; flex-wrap: wrap; margin-bottom: 28px; }
+.page-header > div:first-child { flex: 1 1 380px; min-width: 0; }
+.page-header .lede { margin-top: 8px; color: var(--text-muted); max-width: 68ch; }
+.page-header .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.eyebrow {
+  font-size: 12px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--blue); margin-bottom: 8px;
 }
 
-/* Color: secondary — solid indigo fill */
-.btn-secondary {
-  margin: 0;
-  background: var(--secondary);
-  color: #fff;
-  border-color: var(--secondary);
+/* ---------- Cards and sections ---------- */
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
 }
-.btn-secondary:hover {
-  background: var(--secondary-hover);
-  border-color: var(--secondary-hover);
-  color: #fff;
+.card-pad { padding: 24px; }
+.card-head {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 18px 24px; border-bottom: 1px solid var(--border);
 }
-
-/* Color: normal (aka "default") — plain/neutral, for frequent light-weight
-   actions. White fill with a visible border — an outline-only look, never a
-   filled background — so it reads as lower-emphasis than primary/secondary. */
-.btn-normal {
-  margin: 0;
-  background: #fff;
-  color: #333;
-  border-color: #bbb;
-}
-.btn-normal:hover {
-  background: #f5f5f5;
-  border-color: #999;
-  color: #333;
+.card-head h2, .card-head h3 { flex: 1; min-width: 0; }
+.card-head .hint { flex-basis: 100%; margin-top: -6px; }
+.card-body { padding: 24px; }
+.card + .card, .card + .section, .section + .section, .section + .card { margin-top: 24px; }
+.section-title { display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px; }
+.section-title h2 { flex: 1; }
+.step {
+  display: inline-grid; place-items: center; flex-shrink: 0;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--ink); color: #fff; font-size: 13px; font-weight: 500;
 }
 
-/* Color: danger — solid red fill, always full-color (never just an outline) */
-.btn-danger {
-  margin: 0;
-  background: #c0392b;
-  color: #fff;
-  border-color: #c0392b;
-}
-.btn-danger:hover {
-  background: #a5311f;
-  border-color: #a5311f;
-  color: #fff;
+/* Two-column layout: main + sticky aside (stacks on narrow screens) */
+.split { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 24px; align-items: start; }
+.split-aside { position: sticky; top: 24px; display: flex; flex-direction: column; gap: 16px; }
+@media (max-width: 1100px) {
+  .split { grid-template-columns: minmax(0, 1fr); }
+  .split-aside { position: static; }
 }
 
-/* Buttons inline next to a text field (e.g. "Add role" beside its input)
-   shouldn't inherit the form-bottom spacing meant for standalone submits.
-   Same reasoning for a .btn-primary inside a row-list row (see .rowlist
-   below) or next to a group name heading (e.g. "select all"). */
-.inline-form button, .inline-form .button, .inline-form .btn-primary,
-.rowlist .btn-primary,
-.qgroup-picker h4 .btn-primary { margin-top: 0; }
-button:disabled, .button:disabled, .btn-primary:disabled,
-.btn-secondary:disabled, .btn-normal:disabled, .btn-danger:disabled { opacity: 0.7; cursor: not-allowed; }
+/* ---------- Forms ---------- */
+.field { display: block; }
+.field + .field, .field + .field-row, .field-row + .field, .field-row + .field-row { margin-top: 18px; }
+.field-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 18px; }
+.field-row > .field + .field { margin-top: 0; }
+.label { display: block; font-size: 13px; font-weight: 500; color: var(--ink); margin-bottom: 6px; }
+.label .req { color: var(--blue); margin-left: 2px; }
+.label .opt { color: var(--text-muted); font-weight: 400; }
+.hint { display: block; font-size: 13px; color: var(--text-muted); margin-top: 6px; }
+.hint a { font-weight: 500; }
 
-/* Small spinner shown inside a button while its request is in flight
-   (e.g. "Generate interview guide" while the LLM call is running). */
+.input, input[type=text], input[type=email], input[type=password], input[type=number], textarea, select {
+  width: 100%; margin: 0;
+  font: inherit; font-size: 14px; color: var(--text);
+  background: var(--white);
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+  padding: 9px 12px; min-height: 40px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+textarea { line-height: 1.5; resize: vertical; }
+textarea.code { font-family: var(--mono); font-size: 13px; line-height: 1.6; background: var(--gray-50); }
+input::placeholder, textarea::placeholder { color: var(--gray-500); }
+input:hover, textarea:hover, select:hover { border-color: var(--gray-400); }
+input:focus, textarea:focus, select:focus { outline: none; border-color: var(--blue); box-shadow: var(--ring); }
+select {
+  appearance: none; -webkit-appearance: none; padding-right: 36px; cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23595959' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center;
+}
+.input-suffix { position: relative; }
+.input-suffix input { padding-right: 52px; }
+.input-suffix span { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 13px; color: var(--text-muted); pointer-events: none; }
+
+/* File drop zone: the real <input type=file> covers the zone, so click,
+   keyboard and drag-and-drop all work natively. */
+.dropzone {
+  position: relative; display: flex; align-items: center; gap: 14px;
+  padding: 18px; border: 1.5px dashed var(--border-strong); border-radius: var(--radius);
+  background: var(--gray-50); transition: border-color 0.15s, background 0.15s;
+}
+.dropzone:hover, .dropzone.is-drag { border-color: var(--blue); background: var(--blue-50); }
+.dropzone:focus-within { border-color: var(--blue); box-shadow: var(--ring); }
+.dropzone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+.dropzone-icon {
+  width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+  display: grid; place-items: center; background: var(--white); color: var(--blue);
+  border: 1px solid var(--border);
+}
+.dropzone-text { min-width: 0; display: flex; flex-direction: column; }
+.dropzone-title { font-size: 14px; font-weight: 500; color: var(--ink); }
+.dropzone-meta { font-size: 13px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dropzone.has-file { border-style: solid; border-color: var(--blue); background: var(--blue-50); }
+.dropzone.has-file .dropzone-icon { background: var(--blue); color: #fff; border-color: var(--blue); }
+.dropzone.compact { padding: 12px 14px; }
+.dropzone.compact .dropzone-icon { width: 32px; height: 32px; }
+
+/* Tabs (segmented control) — radio inputs, CSS-only panel switching */
+.tabs { display: inline-flex; padding: 3px; gap: 2px; background: var(--gray-100); border-radius: 8px; margin-bottom: 14px; }
+.tabs input { position: absolute; opacity: 0; pointer-events: none; }
+.tabs label { padding: 6px 14px; font-size: 13px; font-weight: 500; color: var(--text-muted); border-radius: 6px; cursor: pointer; }
+.tabs input:checked + label { background: var(--white); color: var(--ink); box-shadow: var(--shadow-sm); }
+.tabs input:focus-visible + label { box-shadow: var(--ring); }
+.tab-panel { display: none; }
+
+.check { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; font-size: 14px; }
+.check input { width: 16px; height: 16px; margin: 3px 0 0; accent-color: var(--blue); flex-shrink: 0; cursor: pointer; }
+
+/* ---------- Buttons ---------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  height: 40px; padding: 0 16px; margin: 0;
+  font: inherit; font-size: 14px; font-weight: 500; line-height: 1; white-space: nowrap;
+  border: 1px solid transparent; border-radius: var(--radius-sm);
+  cursor: pointer; text-decoration: none; transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.btn:hover { text-decoration: none; }
+.btn-primary { background: var(--blue); color: #fff; }
+.btn-primary:hover { background: var(--blue-600); color: #fff; }
+.btn-dark { background: var(--ink); color: #fff; }
+.btn-dark:hover { background: #000; color: #fff; }
+.btn-outline { background: var(--white); color: var(--ink); border-color: var(--border-strong); }
+.btn-outline:hover { background: var(--gray-50); border-color: var(--gray-400); color: var(--ink); }
+.btn-ghost { background: transparent; color: var(--gray-700); }
+.btn-ghost:hover { background: var(--gray-100); color: var(--ink); }
+.btn-danger { background: var(--white); color: var(--danger); border-color: #f4c7c3; }
+.btn-danger:hover { background: var(--danger-50); border-color: var(--danger); color: var(--danger-600); }
+.btn-danger-solid { background: var(--danger); color: #fff; }
+.btn-danger-solid:hover { background: var(--danger-600); color: #fff; }
+.btn-sm { height: 32px; padding: 0 12px; font-size: 13px; gap: 6px; }
+.btn-lg { height: 48px; padding: 0 22px; font-size: 15px; }
+.btn-block { width: 100%; }
+.btn-icon { width: 32px; padding: 0; }
+.btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-ghost.is-danger:hover { color: var(--danger); background: var(--danger-50); }
+
 .spinner {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  border: 2px solid rgba(255, 255, 255, 0.5);
-  border-top-color: #fff;
-  border-radius: 50%;
-  animation: btn-spin 0.7s linear infinite;
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.45); border-top-color: #fff;
+  animation: spin 0.7s linear infinite;
 }
-/* Setting `display: inline-block` above on the plain .spinner class
-   overrides the browser's default `[hidden] { display: none }` rule
-   (author styles win over the user-agent stylesheet regardless of the
-   `hidden` attribute) — without this, the spinner shows even before the
-   button is clicked. This re-asserts hidden so JS can still show/hide it
-   by toggling the attribute. */
-.spinner[hidden] {
-  display: none;
+.spinner[hidden] { display: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- Badges, chips ---------- */
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  height: 22px; padding: 0 8px; border-radius: 999px;
+  font-size: 12px; font-weight: 500; white-space: nowrap;
+  background: var(--gray-100); color: var(--gray-700);
 }
-@keyframes btn-spin {
-  to { transform: rotate(360deg); }
+.badge-blue { background: var(--blue-50); color: var(--blue); }
+.badge-dark { background: var(--ink); color: #fff; }
+.badge-success { background: var(--success-50); color: var(--success); }
+.badge-danger { background: var(--danger-50); color: var(--danger-600); }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 999px; font-size: 13px;
+  background: var(--gray-100); color: var(--gray-700); border: 1px solid transparent;
+}
+button.chip { font: inherit; font-size: 13px; cursor: pointer; }
+button.chip:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-50); }
+
+/* ---------- Flash ---------- */
+.flash-stack { display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px; }
+.flash {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 12px 8px 12px 14px; border-radius: var(--radius);
+  background: var(--blue-50); border: 1px solid var(--blue-100); color: var(--ink); font-size: 14px;
+}
+.flash > .icon { color: var(--blue); margin-top: 2px; }
+.flash p { flex: 1; }
+.flash-close { width: 26px; height: 26px; margin: -2px 0; }
+
+/* ---------- Data tables ----------
+   Real <table> markup for screen readers; on narrow screens each row turns
+   into a stacked card and every cell shows its column name from data-label. */
+.table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-sm); }
+.table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.table th {
+  text-align: left; font-size: 12px; font-weight: 500; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  padding: 12px 16px; background: var(--gray-50); border-bottom: 1px solid var(--border);
+}
+.table td { padding: 14px 16px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.table tr:last-child td { border-bottom: 0; }
+.table tbody tr:hover { background: var(--gray-50); }
+.table .cell-strong { font-weight: 500; color: var(--ink); }
+.table .cell-actions { text-align: right; white-space: nowrap; width: 1%; }
+.table .cell-actions .row { justify-content: flex-end; flex-wrap: nowrap; }
+.table .cell-actions form { margin: 0; }
+.table a.row-link { color: var(--ink); font-weight: 500; }
+.table a.row-link:hover { color: var(--blue); }
+@media (max-width: 720px) {
+  .table thead { display: none; }
+  .table, .table tbody, .table tr, .table td { display: block; width: 100%; }
+  .table tr { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+  .table tr:last-child { border-bottom: 0; }
+  .table td { padding: 3px 0; border: 0; display: flex; gap: 12px; }
+  .table td[data-label]::before {
+    content: attr(data-label); flex: 0 0 96px;
+    font-size: 12px; color: var(--text-muted); padding-top: 1px;
+  }
+  .table .cell-actions { width: 100%; text-align: left; padding-top: 10px; }
+  .table .cell-actions .row { justify-content: flex-start; flex-wrap: wrap; }
 }
 
-.flash { background: #fff3cd; border: 1px solid #ffe69c; padding: 10px 14px; border-radius: 6px; margin: 16px 0; }
-
-/* ============================================================
-   ROW LIST — the app's stand-in for HTML tables/lists everywhere (Interview
-   Roles, Users, System Prompts, guide history, the scoring table, etc.):
-   plain divs styled to look like a simple list of rows with actions, not a
-   real <table> or <ul>/<ol>. Column widths are set once per list via a
-   `--cols` custom property on the `.rowlist` container (a CSS grid
-   template-columns value) — every `.rowlist-row` inside inherits it, so the
-   heading row and data rows always line up without repeating the column
-   layout in every row's markup. */
-.rowlist { border: 1px solid #e5e5e5; border-radius: 8px; margin-top: 12px; overflow: hidden; }
-.rowlist-row {
-  display: grid;
-  grid-template-columns: var(--cols, 1fr auto);
-  gap: 12px;
-  align-items: center;
-  padding: 10px 14px;
-  border-bottom: 1px solid #f0f0f0;
+/* ---------- Empty state ---------- */
+.empty {
+  text-align: center; padding: 48px 24px;
+  background: var(--surface); border: 1px dashed var(--border-strong); border-radius: var(--radius-lg);
 }
-.rowlist-row:last-child { border-bottom: none; }
-.rowlist-row.rowlist-heading {
-  background: #fafafa;
-  font-weight: 600;
-  font-size: 0.78rem;
-  color: #666;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+.empty-icon {
+  width: 48px; height: 48px; margin: 0 auto 14px; border-radius: 50%;
+  display: grid; place-items: center; background: var(--blue-50); color: var(--blue);
 }
-.rowlist-cell { min-width: 0; font-size: 0.9rem; overflow-wrap: break-word; }
-.rowlist-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.rowlist-empty { padding: 14px; color: #666; font-size: 0.9rem; }
+.empty h3 { margin-bottom: 6px; }
+.empty p { color: var(--text-muted); max-width: 46ch; margin: 0 auto; }
+.empty .btn { margin-top: 18px; }
 
-.topbar .spacer { flex: 1; }
-.topbar .whoami { color: rgba(255,255,255,0.8); font-size: 0.85rem; }
-/* .btn-secondary is normally the same solid indigo as this topbar — without
-   an override the Log out button would blend invisibly into the background
-   it sits on. Give it a translucent-white treatment instead, just here. */
-.topbar .btn-secondary {
-  background: rgba(255,255,255,0.15);
-  border-color: rgba(255,255,255,0.4);
+/* ---------- Generate form: question picker ---------- */
+.picker { display: flex; flex-direction: column; gap: 10px; }
+.picker-group { border: 1px solid var(--border); border-radius: var(--radius); background: var(--white); }
+.picker-group[open] { border-color: var(--border-strong); }
+.picker-group summary {
+  list-style: none; cursor: pointer;
+  display: flex; align-items: center; gap: 10px; padding: 12px 14px;
 }
-.topbar .btn-secondary:hover {
-  background: rgba(255,255,255,0.28);
-  border-color: rgba(255,255,255,0.6);
-  color: #fff;
+.picker-group summary::-webkit-details-marker { display: none; }
+.picker-group summary .chev { color: var(--gray-500); transition: transform 0.15s; }
+.picker-group[open] summary .chev { transform: rotate(90deg); }
+.picker-group summary h4 { flex: 1; min-width: 0; }
+.picker-count { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.picker-count.has-sel { color: var(--blue); font-weight: 500; }
+.picker-body { padding: 4px 14px 14px 40px; }
+.picker-tools { display: flex; gap: 4px; margin-bottom: 6px; }
+.picker-tools .btn { height: 26px; padding: 0 8px; font-size: 12px; }
+.picker-body .check { padding: 6px 0; }
+
+/* Summary aside on the generate page */
+.summary-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; font-size: 14px; }
+.summary-list li { display: flex; align-items: center; gap: 10px; }
+.summary-list .dot {
+  width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
+  display: grid; place-items: center; border: 1.5px solid var(--gray-300); color: transparent;
+}
+.summary-list li.is-done .dot { background: var(--blue); border-color: var(--blue); color: #fff; }
+.summary-list li.is-done { color: var(--ink); }
+.summary-list li:not(.is-done) { color: var(--text-muted); }
+
+/* ---------- Guide (result) ---------- */
+.guide-hero {
+  position: relative; overflow: hidden;
+  background: var(--ink); color: #fff; border-radius: var(--radius-lg);
+  padding: 32px 32px 28px;
+}
+.guide-hero::after { /* DECODE quarter arc */
+  content: ""; position: absolute; right: 0; top: 0;
+  width: 132px; height: 132px; border-bottom-left-radius: 100%;
+  border-left: 30px solid var(--blue); border-bottom: 30px solid var(--blue);
+}
+@media (max-width: 600px) { .guide-hero::after { width: 72px; height: 72px; border-width: 0 0 18px 18px; } }
+.guide-hero h1 { color: #fff; font-size: 34px; }
+.guide-hero > p, .guide-hero > h1 { padding-right: 140px; }
+@media (max-width: 600px) { .guide-hero { padding: 24px 20px; } .guide-hero > p, .guide-hero > h1 { padding-right: 70px; } .guide-hero h1 { font-size: 28px; } }
+.guide-hero .eyebrow { color: #8fa3ff; }
+.guide-hero .role { color: var(--gray-400); font-size: 17px; margin-top: 6px; font-weight: 300; }
+.guide-meta { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 22px; font-size: 13px; color: var(--gray-400); }
+.guide-meta span { display: inline-flex; align-items: center; gap: 6px; }
+.guide-meta strong { color: #fff; font-weight: 500; }
+.guide-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 24px; position: relative; z-index: 1; }
+.guide-hero .btn-outline { background: transparent; color: #fff; border-color: rgba(255,255,255,0.3); }
+.guide-hero .btn-outline:hover { background: rgba(255,255,255,0.08); border-color: #fff; }
+
+.guide-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 32px; margin-top: 32px; align-items: start; }
+.toc { position: sticky; top: 24px; font-size: 13px; }
+.toc p { font-size: 11px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); margin: 0 0 10px 12px; }
+.toc a {
+  display: flex; gap: 10px; align-items: baseline; padding: 6px 12px;
+  color: var(--gray-700); border-left: 2px solid var(--border);
+}
+.toc a:hover { color: var(--ink); border-left-color: var(--gray-400); text-decoration: none; }
+.toc a.is-active { color: var(--blue); border-left-color: var(--blue); }
+.toc .toc-min { margin-left: auto; color: var(--gray-500); font-size: 12px; white-space: nowrap; }
+@media (max-width: 1000px) {
+  .guide-layout { grid-template-columns: minmax(0, 1fr); }
+  .toc { display: none; }
 }
 
-.inline-form { display: inline-flex; align-items: center; gap: 6px; margin: 0; }
+.guide-section { scroll-margin-top: 24px; }
+.guide-section + .guide-section { margin-top: 36px; }
+.guide-section .section-title { margin-bottom: 14px; }
+.guide-section .time { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; color: var(--text-muted); white-space: nowrap; }
+.guide-sub { font-size: 12px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); margin: 20px 0 10px; }
+.guide-sub:first-child { margin-top: 0; }
+.prose { font-size: 15px; line-height: 1.65; }
+.bullets { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.bullets li { position: relative; padding-left: 20px; }
+.bullets li::before { content: ""; position: absolute; left: 2px; top: 0.65em; width: 7px; height: 7px; border-radius: 2px; background: var(--blue); }
 
-.checkbox-label { display: flex; align-items: center; gap: 8px; font-weight: normal; }
-.checkbox-label input { width: auto; }
+.q-list { display: flex; flex-direction: column; gap: 10px; }
+.q-card {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 14px;
+  padding: 16px 18px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius);
+}
+.q-num {
+  grid-row: span 3; width: 28px; height: 28px; border-radius: 8px;
+  display: grid; place-items: center; background: var(--gray-100);
+  font-size: 13px; font-weight: 500; color: var(--gray-700);
+}
+.q-text { font-weight: 500; color: var(--ink); font-size: 15px; }
+.q-guide { color: var(--gray-700); font-size: 14px; }
+.q-follow {
+  margin-top: 6px; padding: 8px 12px; border-radius: 8px; background: var(--blue-50);
+  font-size: 13px; color: var(--ink);
+}
+.q-follow b { color: var(--blue); font-weight: 500; margin-right: 4px; }
+.links-list { display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.links-list li { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.links-list a { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 
-.qgroup { border: 1px solid #e5e5e5; border-radius: 8px; padding: 16px; margin-top: 16px; }
-.qgroup-header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.qgroup-header input[type=text] { width: 260px; display: inline-block; }
-.qgroup-header button, .qgroup-header .button, .qgroup-header .btn-primary { margin-top: 0; }
-.owner-note { color: #999; font-size: 0.8rem; }
-.badge { font-size: 0.75rem; padding: 2px 8px; border-radius: 999px; }
-.badge.shared { background: #e6f4ea; color: #1e7e34; }
-.badge.private { background: #eef0f3; color: #555; }
+/* ---------- Question bank ---------- */
+.group-list { display: flex; flex-direction: column; gap: 10px; }
+.group-row {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding: 16px 18px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.group-row:hover { border-color: var(--border-strong); box-shadow: var(--shadow-sm); }
+.group-icon { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; background: var(--gray-100); color: var(--gray-700); flex-shrink: 0; }
+.group-main { flex: 1; min-width: 200px; }
+.group-main a { color: var(--ink); font-weight: 500; font-size: 15px; }
+.group-main a:hover { color: var(--blue); }
+.group-meta { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+.group-row form { margin: 0; }
 
-/* Not a real <ul> — plain divs styled to look like a simple list. */
-.qlist { margin: 12px 0; }
-.qlist .qlist-item { padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
-.qlist .qlist-item:last-child { border-bottom: none; }
-.qedit { display: block; }
-.qedit input[type=text] { width: 100%; margin: 0; }
-.qedit textarea { margin-top: 6px; font-size: 0.85rem; }
-/* Save (inside the .qedit form, via the HTML `form` attribute) and delete
-   (its own tiny empty form, same trick) render as one row here, even though
-   they submit two different <form> elements — forms can't nest, so the
-   buttons live outside both and point at them by id. */
-.qedit-actions { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+.q-edit { padding: 18px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); }
+.q-edit + .q-edit { margin-top: 10px; }
+.q-edit-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.q-edit-head .q-num { grid-row: auto; }
+.q-edit-head .spacer { flex: 1; }
+.q-edit textarea { min-height: 96px; font-size: 14px; }
+.q-edit .q-title-input { font-weight: 500; font-size: 15px; }
+.q-edit-foot { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.q-edit-foot .dirty-note { font-size: 12px; color: var(--text-muted); opacity: 0; transition: opacity 0.15s; }
+.q-edit.is-dirty .dirty-note { opacity: 1; }
+.q-edit.is-dirty { border-color: var(--blue-100); box-shadow: 0 0 0 1px var(--blue-100); }
 
-.qgroup-picker { border: 1px solid #e5e5e5; border-radius: 8px; padding: 12px 16px; margin-top: 10px; }
-.qgroup-picker h4 { margin: 4px 0; font-size: 0.95rem; }
-.qgroup-picker label.checkbox-label { margin: 4px 0; font-size: 0.9rem; }
-.qgroup-picker h4 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rename { display: flex; gap: 8px; align-items: center; }
+.rename .title-input {
+  flex: 1; min-width: 0; min-height: 0;
+  font: 300 30px/1.25 var(--font); letter-spacing: -0.01em; color: var(--ink);
+  padding: 2px 8px; margin-left: -9px;
+  border-color: transparent; background: transparent;
+}
+.rename .title-input:hover { border-color: var(--border-strong); background: var(--white); }
+.rename .title-input:focus { background: var(--white); }
+@media (max-width: 600px) { .rename .title-input { font-size: 24px; } }
 
-.scoring-row { display: flex; align-items: flex-start; gap: 8px; margin: 8px 0; }
-.scoring-row input[type=text] { flex: 1; width: auto; }
-.scoring-row textarea { flex: 2; width: auto; margin: 0; font-size: 0.85rem; }
+/* Collapsible helper card */
+details.disclosure { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); }
+details.disclosure > summary {
+  list-style: none; cursor: pointer; padding: 14px 18px;
+  display: flex; align-items: center; gap: 10px; font-weight: 500; font-size: 14px;
+}
+details.disclosure > summary::-webkit-details-marker { display: none; }
+details.disclosure > summary .chev { margin-left: auto; color: var(--gray-500); transition: transform 0.15s; }
+details.disclosure[open] > summary .chev { transform: rotate(90deg); }
+details.disclosure > .disclosure-body { padding: 0 18px 18px; }
+
+/* ---------- System prompt editor ---------- */
+.var-list { display: flex; flex-direction: column; gap: 4px; }
+.var-item {
+  display: block; width: 100%; text-align: left; cursor: pointer;
+  padding: 10px 12px; border-radius: 8px; border: 1px solid transparent; background: transparent; font: inherit;
+}
+.var-item:hover { background: var(--blue-50); border-color: var(--blue-100); }
+.var-item code { background: var(--white); color: var(--blue); }
+.var-item span { display: block; font-size: 12px; color: var(--text-muted); margin-top: 4px; line-height: 1.4; }
+.scoring-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr) auto; gap: 10px; align-items: start; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.scoring-row:first-child { padding-top: 0; }
+.scoring-row textarea { min-height: 40px; }
+.scoring-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr) 32px; gap: 10px; margin-bottom: 8px; font-size: 12px; color: var(--text-muted); font-weight: 500; }
+@media (max-width: 640px) {
+  .scoring-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .scoring-row textarea { grid-column: 1 / -1; grid-row: 2; }
+  .scoring-head { display: none; }
+}
+
+/* Sticky save bar for long forms */
+.savebar {
+  position: sticky; bottom: 0; z-index: 5; margin-top: 24px;
+  display: flex; align-items: center; gap: 12px; padding: 14px 0;
+  background: linear-gradient(to bottom, rgba(243,243,243,0), var(--bg) 30%);
+}
+
+/* ---------- Inline add form ---------- */
+.inline-add { display: flex; gap: 8px; }
+.inline-add input { flex: 1; }
+@media (max-width: 560px) { .inline-add { flex-direction: column; } }
+
+/* ---------- Auth (login / setup) ---------- */
+.auth { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); min-height: 100vh; }
+.auth-brand {
+  position: relative; overflow: hidden; background: var(--ink); color: #fff;
+  padding: 48px; display: flex; flex-direction: column; justify-content: space-between;
+}
+.auth-brand img { position: relative; z-index: 1; height: auto; }
+.auth-arc {
+  position: absolute; right: 0; top: 0; width: 240px; height: 240px; border-bottom-left-radius: 100%;
+  border-left: 56px solid var(--blue); border-bottom: 56px solid var(--blue);
+}
+.auth-bar { position: absolute; left: 48px; bottom: 0; width: 28px; height: 120px; background: var(--blue); }
+.auth-copy { position: relative; z-index: 1; max-width: 420px; margin-bottom: 120px; }
+.auth-copy .eyebrow { color: #8fa3ff; }
+.auth-tagline { font-size: 28px; font-weight: 300; line-height: 1.3; }
+.auth-main { display: grid; place-items: center; padding: 48px 24px; background: var(--white); }
+.auth-card { width: 100%; max-width: 380px; }
+.auth-card h1 { margin-bottom: 8px; }
+.auth-card .lede { color: var(--text-muted); margin-bottom: 28px; }
+.auth-card .btn { margin-top: 24px; }
+@media (max-width: 860px) {
+  .auth { grid-template-columns: 1fr; }
+  .auth-brand { padding: 24px; min-height: 180px; }
+  .auth-arc { width: 120px; height: 120px; border-width: 0 0 30px 30px; }
+  .auth-bar { display: none; }
+  .auth-copy { margin: 32px 0 0; }
+  .auth-tagline { font-size: 20px; }
+  .auth-main { place-items: start center; padding-top: 32px; }
+}
+
+/* ---------- Print the guide cleanly ---------- */
+@media print {
+  .sidebar, .mobile-bar, .toc, .guide-actions, .flash-stack { display: none !important; }
+  body, .main { background: #fff; }
+  .page { padding: 0; max-width: none; }
+  .guide-layout { display: block; }
+  .guide-hero { background: #fff; color: #000; border: 1px solid #ccc; }
+  .guide-hero h1, .guide-meta strong { color: #000; }
+  .guide-hero .role, .guide-meta { color: #444; }
+  .back-link { display: none; }
+  .guide-hero::after { display: none; }
+  .q-card { break-inside: avoid; }
+}
+
+[hidden] { display: none !important; }

@@ -1,16 +1,20 @@
 {% extends "base.html" %}
 {% block title %}First-time setup{% endblock %}
-{% block content %}
-  <h1>First-time setup</h1>
-  <p class="subtitle">The database has no accounts yet. Create the first account — it automatically
-    becomes the superadmin and can invite (create) other users.</p>
-  <form action="{{ url_for('auth.setup') }}" method="post">
-    <label>Email
-      <input type="email" name="email" required autofocus>
-    </label>
-    <label>Password (min. 8 characters)
-      <input type="password" name="password" required minlength="8">
-    </label>
-    <button type="submit">Create account</button>
-  </form>
+{% block auth_content %}
+<p class="eyebrow">First-time setup</p>
+<h1>Create the admin account</h1>
+<p class="lede">There are no accounts yet. The first one becomes the superadmin and can create
+  accounts for everyone else.</p>
+<form action="{{ url_for('auth.setup') }}" method="post">
+  <label class="field">
+    <span class="label">Email</span>
+    <input type="email" name="email" required autofocus autocomplete="username" placeholder="name@decode.agency">
+  </label>
+  <label class="field">
+    <span class="label">Password</span>
+    <input type="password" name="password" required minlength="8" autocomplete="new-password">
+    <span class="hint">At least 8 characters.</span>
+  </label>
+  <button type="submit" class="btn btn-primary btn-lg btn-block">Create account</button>
+</form>
 {% endblock %}

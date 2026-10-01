@@ -1,32 +1,25 @@
 {% extends "base.html" %}
+{% from "_guides_table.html" import guides_table %}
 {% block title %}My guides{% endblock %}
 {% block content %}
-  <h1>My guides</h1>
-  <p class="subtitle">All the interview guides you've generated. Private — you only see your own.</p>
+<header class="page-header">
+  <div>
+    <h1>My guides</h1>
+    <p class="lede">Every interview guide you've generated. Only you can see these.</p>
+  </div>
+  <div class="actions">
+    <a class="btn btn-primary" href="{{ url_for('index') }}">{{ icon("plus", 16) }}New guide</a>
+  </div>
+</header>
 
-  {% if guides %}
-    <div class="rowlist" style="--cols: 2fr 2fr 1.5fr 1fr auto;">
-      <div class="rowlist-row rowlist-heading">
-        <div class="rowlist-cell">Candidate</div>
-        <div class="rowlist-cell">Role</div>
-        <div class="rowlist-cell">Generated</div>
-        <div class="rowlist-cell">LLM</div>
-        <div class="rowlist-cell"></div>
-      </div>
-      {% for g in guides %}
-        <div class="rowlist-row">
-          <div class="rowlist-cell">{{ g.candidate_name }}</div>
-          <div class="rowlist-cell">{{ g.role_title }}</div>
-          <div class="rowlist-cell">{{ g.created_at.strftime("%Y-%m-%d %H:%M") }}</div>
-          <div class="rowlist-cell">{{ g.provider_used }}</div>
-          <div class="rowlist-cell rowlist-actions">
-            <a class="btn-normal btn-sm" href="{{ url_for('history_view', guide_id=g.id) }}">view</a>
-            <a class="btn-secondary btn-sm" href="{{ url_for('download', filename=g.docx_filename) }}">download .docx</a>
-          </div>
-        </div>
-      {% endfor %}
-    </div>
-  {% else %}
-    <p>You haven't generated any guides yet. <a href="{{ url_for('index') }}">Generate your first one.</a></p>
-  {% endif %}
+{% if guides %}
+  {{ guides_table(guides) }}
+{% else %}
+  <div class="empty">
+    <div class="empty-icon">{{ icon("doc", 22) }}</div>
+    <h3>No guides yet</h3>
+    <p>Add a CV and the app writes your first interview guide in about a minute.</p>
+    <a class="btn btn-primary" href="{{ url_for('index') }}">{{ icon("plus", 16) }}Create your first guide</a>
+  </div>
+{% endif %}
 {% endblock %}

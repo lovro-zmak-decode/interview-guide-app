@@ -1,34 +1,47 @@
 {% extends "base.html" %}
-{% block title %}Interview Roles{% endblock %}
+{% block title %}Interview roles{% endblock %}
+{% block page_class %}page-narrow{% endblock %}
 {% block content %}
-  <h1>Interview Roles</h1>
-  <p class="subtitle">Shared list of role tags offered on the generate form. Admin-only to manage —
-    but any user typing a new role on the generate form still adds it here automatically.</p>
+<header class="page-header">
+  <div>
+    <p class="eyebrow">Settings</p>
+    <h1>Interview roles</h1>
+    <p class="lede">The roles suggested on the guide form. When someone types a new role there, it's
+      added here automatically.</p>
+  </div>
+</header>
 
-  <form action="{{ url_for('roles.create_role') }}" method="post" class="inline-form">
-    <input type="text" name="name" placeholder="e.g. Backend Developer" required>
-    <button type="submit" class="btn-primary">Add role</button>
+<section class="card">
+  <form class="card-body inline-add" action="{{ url_for('roles.create_role') }}" method="post">
+    <input type="text" name="name" placeholder="e.g. Backend Developer (Java / Quarkus)" required aria-label="New role name">
+    <button type="submit" class="btn btn-dark">{{ icon("plus", 16) }}Add role</button>
   </form>
+</section>
 
-  {% if tags %}
-    <div class="rowlist" style="--cols: 1fr auto;">
-      <div class="rowlist-row rowlist-heading">
-        <div class="rowlist-cell">Role</div>
-        <div class="rowlist-cell"></div>
-      </div>
-      {% for tag in tags %}
-        <div class="rowlist-row">
-          <div class="rowlist-cell">{{ tag.name }}</div>
-          <div class="rowlist-cell rowlist-actions">
-            <form action="{{ url_for('roles.delete_role', tag_id=tag.id) }}" method="post" class="inline-form"
-                  onsubmit="return confirm('Delete role {{ tag.name }}?');">
-              <button type="submit" class="btn-danger btn-sm">delete</button>
-            </form>
-          </div>
-        </div>
-      {% endfor %}
-    </div>
-  {% else %}
-    <p>No roles yet. Add one above.</p>
-  {% endif %}
+{% if tags %}
+  <div class="table-wrap" style="margin-top:16px">
+    <table class="table">
+      <thead><tr><th>Role <span class="badge" style="margin-left:6px">{{ tags|length }}</span></th><th><span class="sr-only">Actions</span></th></tr></thead>
+      <tbody>
+        {% for tag in tags %}
+          <tr>
+            <td class="cell-strong">{{ tag.name }}</td>
+            <td class="cell-actions">
+              <form action="{{ url_for('roles.delete_role', tag_id=tag.id) }}" method="post"
+                    data-confirm="Remove the role “{{ tag.name }}” from the list?">
+                <button type="submit" class="btn btn-ghost btn-sm btn-icon is-danger" aria-label="Remove {{ tag.name }}" title="Remove">{{ icon("trash", 16) }}</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <div class="empty" style="margin-top:16px">
+    <div class="empty-icon">{{ icon("tag", 22) }}</div>
+    <h3>No roles yet</h3>
+    <p>Add one above, or type a new role on the guide form.</p>
+  </div>
+{% endif %}
 {% endblock %}

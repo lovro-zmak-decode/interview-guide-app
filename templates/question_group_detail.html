@@ -1,44 +1,7 @@
 {% extends "base.html" %}
-{% block title %}{{ group.name }} — Own Questions DB{% endblock %}
+{% from "_question_bank.html" import group_detail with context %}
+{% block title %}{{ group.name }} · My questions{% endblock %}
+{% block page_class %}page-narrow{% endblock %}
 {% block content %}
-  <a href="{{ url_for('questions.list_groups') }}">&larr; Own Questions DB</a>
-  <h1>{{ group.name }}</h1>
-  <p class="subtitle">{{ group.questions|length }} question{{ "s" if group.questions|length != 1 else "" }} in this group.</p>
-
-  <a class="btn-normal btn-sm" href="{{ url_for('questions.preview_group', group_id=group.id) }}">display group</a>
-
-  <div class="qlist">
-    {% for q in group.questions %}
-      <div class="qlist-item">
-        <form id="editq{{ q.id }}" action="{{ url_for('questions.edit_question', question_id=q.id) }}" method="post" class="qedit">
-          <label>{{ loop.index }}. Question
-            <input type="text" name="question_text" value="{{ q.question_text }}" placeholder="Question">
-          </label>
-          <label>Explanation (one point per line)
-            <textarea name="explanation" rows="7" placeholder="Explanation (one point per line)">{{ q.explanation }}</textarea>
-          </label>
-        </form>
-        <form id="delq{{ q.id }}" action="{{ url_for('questions.delete_question', question_id=q.id) }}" method="post"></form>
-        <div class="qedit-actions">
-          <button type="submit" form="editq{{ q.id }}" class="btn-secondary btn-sm">save</button>
-          <button type="submit" form="delq{{ q.id }}" class="btn-danger btn-sm">delete</button>
-        </div>
-      </div>
-    {% else %}
-      <div class="qlist-item">No questions in this group yet. Add one below.</div>
-    {% endfor %}
-  </div>
-
-  <fieldset>
-    <legend>Add question</legend>
-    <form action="{{ url_for('questions.add_question', group_id=group.id) }}" method="post" class="qedit">
-      <label>Question
-        <input type="text" name="question_text" placeholder="New question...">
-      </label>
-      <label>Explanation (optional, one point per line)
-        <textarea name="explanation" rows="7" placeholder="Explanation (optional, one point per line)"></textarea>
-      </label>
-      <button type="submit" class="btn-primary">add question</button>
-    </form>
-  </fieldset>
+{{ group_detail("questions", group) }}
 {% endblock %}
