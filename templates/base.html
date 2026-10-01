@@ -1,67 +1,131 @@
+{% from "_icons.html" import icon %}
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>{% block title %}Interview Prep{% endblock %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Interview Prep{% endblock %} · DECODE</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23262626'/%3E%3Cpath d='M9 7h6a9 9 0 0 1 0 18H9z' fill='none' stroke='%23224AFA' stroke-width='4'/%3E%3C/svg%3E">
 </head>
-<body>
+{%- set ep = request.endpoint or "" -%}
+{%- macro nav_link(endpoint, label, icon_name, active) -%}
+  <a href="{{ url_for(endpoint) }}" class="nav-link{{ ' is-active' if active }}"{{ ' aria-current="page"'|safe if active }}>
+    {{ icon(icon_name) }}<span>{{ label }}</span>
+  </a>
+{%- endmacro -%}
+<body class="{% if current_user.is_authenticated %}has-shell{% else %}is-auth{% endif %}">
 {% if current_user.is_authenticated %}
-  <header class="topbar">
-    <a href="{{ url_for('index') }}" class="home-icon" aria-label="Home" title="Home">
-      <svg viewBox="0 0 43.916 43.916" fill="currentColor">
-        <path d="M34.395,0H9.522c-2.762,0-5,2.239-5,5v33.916c0,2.761,2.238,5,5,5h24.871c2.762,0,5-2.239,5-5V5
-          C39.395,2.239,37.154,0,34.395,0z M9.208,16.855c0-1.172,0.951-2.121,2.121-2.121h0.742c-0.791-0.874-1.277-2.03-1.277-3.304
-          c0-2.723,2.209-4.931,4.932-4.931c2.725,0,4.932,2.207,4.932,4.932c0,1.272-0.486,2.429-1.279,3.303h0.709
-          c1.172,0,2.121,0.949,2.121,2.121v3.578c0,1.122-0.875,2.03-1.975,2.106h-9.051c-1.1-0.076-1.975-0.984-1.975-2.106V16.855
-          L9.208,16.855z M32.708,37.416h-21.5c-1.104,0-2-0.896-2-2s0.896-2,2-2h21.5c1.104,0,2,0.896,2,2S33.812,37.416,32.708,37.416z
-          M32.708,29.916h-21.5c-1.104,0-2-0.896-2-2s0.896-2,2-2h21.5c1.104,0,2,0.896,2,2S33.812,29.916,32.708,29.916z M32.708,22.416
-          h-6.5c-1.104,0-2-0.896-2-2c0-1.104,0.896-2,2-2h6.5c1.104,0,2,0.896,2,2C34.708,21.52,33.812,22.416,32.708,22.416z"/>
-      </svg>
+  <input type="checkbox" id="nav-toggle" class="nav-toggle" hidden>
+  <header class="mobile-bar">
+    <a href="{{ url_for('index') }}" class="brand" aria-label="Interview Prep home">
+      <img src="{{ url_for('static', filename='decode-wordmark.png') }}" alt="DECODE" width="96" height="14">
     </a>
-    <span class="spacer"></span>
-    <span class="whoami">{{ current_user.email }}</span>
-    <form action="{{ url_for('auth.logout') }}" method="post" class="inline-form">
-      <button type="submit" class="btn-secondary btn-sm">Log out</button>
-    </form>
+    <label for="nav-toggle" class="icon-btn" aria-label="Open menu">{{ icon("menu", 22) }}</label>
   </header>
+  <label for="nav-toggle" class="nav-scrim" aria-hidden="true"></label>
 
-  <div class="app-shell">
-    <aside class="sidebar">
-      <nav>
-        <a href="{{ url_for('index') }}">Generate guide</a>
-        <a href="{{ url_for('history') }}">My guides</a>
+  <div class="shell">
+    <aside class="sidebar" aria-label="Main navigation">
+      <div class="sidebar-head">
+        <a href="{{ url_for('index') }}" class="brand" aria-label="Interview Prep home">
+          <img src="{{ url_for('static', filename='decode-wordmark.png') }}" alt="DECODE" width="112" height="16">
+        </a>
+        <span class="product-name">Interview Prep</span>
+        <label for="nav-toggle" class="icon-btn nav-close" aria-label="Close menu">{{ icon("close", 20) }}</label>
+      </div>
+
+      <nav class="nav">
+        <a href="{{ url_for('index') }}" class="nav-cta{{ ' is-active' if ep == 'index' }}">
+          {{ icon("plus") }}<span>New interview guide</span>
+        </a>
+
+        <p class="nav-label">Guides</p>
+        {{ nav_link('history', 'My guides', 'doc', ep in ('history', 'history_view')) }}
         {% if current_user.is_admin %}
-          <a href="{{ url_for('all_guides') }}">All guides</a>
+          {{ nav_link('all_guides', 'All guides', 'docs', ep == 'all_guides') }}
         {% endif %}
-        <a href="{{ url_for('questions.list_groups') }}">Own Questions DB</a>
+
+        <p class="nav-label">Question bank</p>
+        {{ nav_link('questions.list_groups', 'My questions', 'list', ep.startswith('questions.')) }}
         {% if current_user.is_admin %}
-          <a href="{{ url_for('shared_questions.list_groups') }}">Shared Questions DB</a>
-          <a href="{{ url_for('roles.list_roles') }}">Interview Roles</a>
-          <a href="{{ url_for('system_prompts.list_prompts') }}">System Prompts</a>
+          {{ nav_link('shared_questions.list_groups', 'Shared questions', 'team', ep.startswith('shared_questions.')) }}
         {% endif %}
-        {% if current_user.is_superadmin %}
-          <a href="{{ url_for('auth.manage_users') }}">Users</a>
+
+        {% if current_user.is_admin %}
+          <p class="nav-label">Settings</p>
+          {{ nav_link('roles.list_roles', 'Interview roles', 'tag', ep.startswith('roles.')) }}
+          {{ nav_link('system_prompts.list_prompts', 'System prompts', 'prompt', ep.startswith('system_prompts.')) }}
+          {% if current_user.is_superadmin %}
+            {{ nav_link('auth.manage_users', 'Users', 'user', ep.startswith('auth.')) }}
+          {% endif %}
         {% endif %}
       </nav>
+
+      <div class="sidebar-foot">
+        <div class="avatar" aria-hidden="true">{{ current_user.email[:1]|upper }}</div>
+        <div class="whoami">
+          <span class="whoami-email" title="{{ current_user.email }}">{{ current_user.email }}</span>
+          <span class="whoami-role">{{ current_user.role }}</span>
+        </div>
+        <form action="{{ url_for('auth.logout') }}" method="post">
+          <button type="submit" class="icon-btn" aria-label="Log out" title="Log out">{{ icon("logout") }}</button>
+        </form>
+      </div>
     </aside>
 
-    <div class="main-column">
-{% endif %}
-      <main class="container">
+    <main class="main" id="main">
+      <div class="page {% block page_class %}{% endblock %}">
         {% with messages = get_flashed_messages() %}
           {% if messages %}
-            <div class="flash">
-              {% for m in messages %}<p>{{ m }}</p>{% endfor %}
+            <div class="flash-stack" role="status">
+              {% for m in messages %}
+                <div class="flash">{{ icon("info") }}<p>{{ m }}</p>
+                  <button type="button" class="icon-btn flash-close" aria-label="Dismiss" onclick="this.parentElement.remove()">{{ icon("close", 16) }}</button>
+                </div>
+              {% endfor %}
             </div>
           {% endif %}
         {% endwith %}
-
         {% block content %}{% endblock %}
-      </main>
-{% if current_user.is_authenticated %}
-    </div>
+      </div>
+    </main>
+  </div>
+{% else %}
+  <div class="auth">
+    <section class="auth-brand" aria-hidden="true">
+      <img src="{{ url_for('static', filename='decode-wordmark.png') }}" alt="" width="150" height="21">
+      <div class="auth-arc"></div>
+      <div class="auth-bar"></div>
+      <div class="auth-copy">
+        <p class="eyebrow">Interview Prep</p>
+        <p class="auth-tagline">First-interview guides, researched from the candidate's CV, LinkedIn and linked projects.</p>
+      </div>
+    </section>
+    <main class="auth-main" id="main">
+      <div class="auth-card">
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            <div class="flash-stack" role="status">
+              {% for m in messages %}<div class="flash">{{ icon("info") }}<p>{{ m }}</p></div>{% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+        {% block auth_content %}{% endblock %}
+      </div>
+    </main>
   </div>
 {% endif %}
+<script>
+  // Buttons/links marked data-confirm ask before submitting (deletes etc.).
+  document.addEventListener('submit', function (e) {
+    var msg = e.target.getAttribute('data-confirm');
+    if (msg && !window.confirm(msg)) e.preventDefault();
+  }, true);
+</script>
+{% block scripts %}{% endblock %}
 </body>
 </html>

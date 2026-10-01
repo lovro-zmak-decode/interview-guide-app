@@ -1,15 +1,17 @@
 {% extends "base.html" %}
 {% block title %}Log in{% endblock %}
-{% block content %}
-  <h1>Log in</h1>
-  <p class="subtitle">Accounts are invite-only — contact an admin if you don't have access.</p>
-  <form action="{{ url_for('auth.login') }}" method="post">
-    <label>Email
-      <input type="email" name="email" required autofocus>
-    </label>
-    <label>Password
-      <input type="password" name="password" required>
-    </label>
-    <button type="submit">Log in</button>
-  </form>
+{% block auth_content %}
+<h1>Log in</h1>
+<p class="lede">Accounts are invite-only. If you don't have one, ask an admin.</p>
+<form action="{{ url_for('auth.login') }}" method="post">
+  <label class="field">
+    <span class="label">Email</span>
+    <input type="email" name="email" required autofocus autocomplete="username" placeholder="name@decode.agency">
+  </label>
+  <label class="field">
+    <span class="label">Password</span>
+    <input type="password" name="password" required autocomplete="current-password">
+  </label>
+  <button type="submit" class="btn btn-primary btn-lg btn-block">Log in</button>
+</form>
 {% endblock %}

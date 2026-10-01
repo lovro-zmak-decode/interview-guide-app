@@ -1,116 +1,241 @@
 {% extends "base.html" %}
-{% block title %}Interview Prep{% endblock %}
+{% block title %}New interview guide{% endblock %}
 {% block content %}
-    <h1>First interview prep</h1>
-    <p class="subtitle">Attach the candidate's CV and LinkedIn info — the app researches the
-      material (including any linked projects) and generates an interview guide.</p>
+<header class="page-header">
+  <div>
+    <p class="eyebrow">First interview prep</p>
+    <h1>New interview guide</h1>
+    <p class="lede">Add the candidate's CV and LinkedIn. The app reads them, follows any linked
+      projects, and writes a timed interview guide you can download as .docx.</p>
+  </div>
+</header>
 
-    <form action="{{ url_for('generate') }}" method="post" enctype="multipart/form-data" id="generate-form">
-      <label>Candidate CV (PDF, DOCX or TXT) *
-        <input type="file" name="cv_file" accept=".pdf,.docx,.txt" required>
-      </label>
-
-      <fieldset>
-        <legend>LinkedIn info</legend>
-        <label>Paste LinkedIn profile text
-          <textarea name="linkedin_text" rows="8" placeholder="Copy/paste the LinkedIn profile content here..."></textarea>
-        </label>
-        <p class="or">or</p>
-        <label>Upload a LinkedIn export (PDF/DOCX, from "Save to PDF" on LinkedIn)
-          <input type="file" name="linkedin_file" accept=".pdf,.docx,.txt">
-        </label>
-      </fieldset>
-
-      <label>Candidate Name
-        <input type="text" name="candidate_name" placeholder="e.g. Jane Doe">
-      </label>
-
-      <label>Interview Role
-        <input type="text" name="role_title" list="role-options" autocomplete="off"
-               placeholder="e.g. Backend Developer (Java / Quarkus)">
-        <datalist id="role-options">
-          {% for tag in interview_roles %}
-            <option value="{{ tag.name }}">
-          {% endfor %}
-        </datalist>
-      </label>
-      <p class="subtitle role-hint">Pick an existing interview role or type a new one — new ones are
-        added to the list automatically.
-        {% if current_user.is_admin %}<a href="{{ url_for('roles.list_roles') }}">Manage Interview Roles</a>.{% endif %}</p>
-
-      <label>Interview duration (minutes)
-        <input type="number" name="duration_minutes" value="40" min="15" max="180">
-      </label>
-
-      <label>LLM provider
-        <select name="provider">
-          {% for p in providers %}
-            <option value="{{ p }}" {% if p == default_provider %}selected{% endif %}>{{ p }}</option>
-          {% endfor %}
-        </select>
-      </label>
-
-      <label>System prompt
-        <select name="prompt_id">
-          {% for sp in system_prompts %}
-            <option value="{{ sp.id }}" {% if loop.first %}selected{% endif %}>{{ sp.name }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <p class="subtitle role-hint">Which prompt template the LLM is given for this guide.
-        {% if current_user.is_admin %}<a href="{{ url_for('system_prompts.list_prompts') }}">Manage System Prompts</a>.{% endif %}</p>
-
-      <fieldset>
-        <legend>Questions from the Questions DB (optional)</legend>
-        <p class="subtitle">Pick groups/questions that MUST be in the guide. The LLM will add
-          guidance tailored to this candidate, but won't change the question text itself.
-          <a href="{{ url_for('questions.list_groups') }}">Edit Own Questions DB</a>{% if current_user.is_admin %}
-          &middot; <a href="{{ url_for('shared_questions.list_groups') }}">Edit Shared Questions DB</a>{% endif %}.</p>
-
-        {% for group in question_groups %}
-          <div class="qgroup-picker">
-            <h4>
-              {{ group.name }}
-              <span class="badge {{ 'shared' if group.is_shared() else 'private' }}">
-                {{ "shared" if group.is_shared() else "private" }}
-              </span>
-              <button type="button" class="btn-normal btn-sm" onclick="toggleGroup({{ group.id }}, true)">select all</button>
-              <button type="button" class="btn-normal btn-sm" onclick="toggleGroup({{ group.id }}, false)">clear all</button>
-            </h4>
-            {% for q in group.questions %}
-              <label class="checkbox-label">
-                <input type="checkbox" name="question_ids" value="{{ q.id }}" data-group="{{ group.id }}">
-                {{ q.question_text }}
-              </label>
-            {% endfor %}
+<form action="{{ url_for('generate') }}" method="post" enctype="multipart/form-data" id="generate-form">
+  <div class="split">
+    <div>
+      <section class="card">
+        <div class="card-head"><span class="step">1</span><h2>Candidate</h2></div>
+        <div class="card-body">
+          <div class="field-row">
+            <label class="field">
+              <span class="label">Candidate name</span>
+              <input type="text" name="candidate_name" placeholder="e.g. Jane Doe" autocomplete="off">
+            </label>
+            <label class="field">
+              <span class="label">Interview role</span>
+              <input type="text" name="role_title" list="role-options" autocomplete="off"
+                     placeholder="e.g. Backend Developer (Java / Quarkus)">
+              <datalist id="role-options">
+                {% for tag in interview_roles %}<option value="{{ tag.name }}">{% endfor %}
+              </datalist>
+            </label>
           </div>
-        {% else %}
-          <p>No question groups yet. <a href="{{ url_for('questions.list_groups') }}">Import or create one.</a></p>
-        {% endfor %}
-      </fieldset>
+          <p class="hint">Pick a role from the list or type a new one. New roles are saved automatically.
+            {% if current_user.is_admin %}<a href="{{ url_for('roles.list_roles') }}">Manage roles</a>{% endif %}</p>
 
-      <button type="submit" id="generate-btn" class="btn-primary btn-lg">
-        <span id="generate-btn-spinner" class="spinner" hidden></span>
-        <span id="generate-btn-label">Generate interview guide</span>
-      </button>
-    </form>
+          <div class="field" style="margin-top:20px">
+            <span class="label">CV <span class="req" aria-hidden="true">*</span></span>
+            <div class="dropzone" data-dropzone>
+              <input type="file" name="cv_file" accept=".pdf,.docx,.txt" required aria-label="Candidate CV (PDF, DOCX or TXT)">
+              <span class="dropzone-icon">{{ icon("upload", 20) }}</span>
+              <span class="dropzone-text">
+                <span class="dropzone-title" data-default="Drop the CV here or click to browse">Drop the CV here or click to browse</span>
+                <span class="dropzone-meta" data-default="PDF, DOCX or TXT">PDF, DOCX or TXT</span>
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
 
-    <script>
-      function toggleGroup(groupId, checked) {
-        document.querySelectorAll('input[data-group="' + groupId + '"]').forEach(function (el) {
-          el.checked = checked;
-        });
-      }
+      <section class="card">
+        <div class="card-head">
+          <span class="step">2</span><h2>LinkedIn profile</h2><span class="badge">Optional</span>
+        </div>
+        <div class="card-body li-tabs">
+          <div class="tabs" role="radiogroup" aria-label="How to add LinkedIn info">
+            <input type="radio" name="li_mode" id="li-paste" value="paste" checked form="li-mode-dummy">
+            <label for="li-paste">Paste text</label>
+            <input type="radio" name="li_mode" id="li-upload" value="upload" form="li-mode-dummy">
+            <label for="li-upload">Upload PDF export</label>
+          </div>
+          <div class="tab-panel tab-paste">
+            <textarea name="linkedin_text" rows="7" aria-label="LinkedIn profile text"
+                      placeholder="Copy everything from the candidate's LinkedIn profile and paste it here"></textarea>
+          </div>
+          <div class="tab-panel tab-upload">
+            <div class="dropzone compact" data-dropzone>
+              <input type="file" name="linkedin_file" accept=".pdf,.docx,.txt" aria-label="LinkedIn export file">
+              <span class="dropzone-icon">{{ icon("upload", 18) }}</span>
+              <span class="dropzone-text">
+                <span class="dropzone-title" data-default="Drop the LinkedIn PDF here">Drop the LinkedIn PDF here</span>
+                <span class="dropzone-meta" data-default="On the profile, open More and choose Save to PDF">On the profile, open More and choose Save to PDF</span>
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
 
-      // Show a loading state on the button while the request round-trips to
-      // the backend (CV/LinkedIn extraction + the LLM call can take a while).
-      // Runs on the form's "submit" event, which only fires after the
-      // browser's own required-field validation has already passed.
-      document.getElementById('generate-form').addEventListener('submit', function () {
-        var btn = document.getElementById('generate-btn');
-        btn.disabled = true;
-        document.getElementById('generate-btn-spinner').hidden = false;
-        document.getElementById('generate-btn-label').textContent = 'Generating interview guide...';
-      });
-    </script>
+      <section class="card">
+        <div class="card-head">
+          <span class="step">3</span><h2>Questions from the bank</h2><span class="badge">Optional</span>
+          <p class="hint">The model uses these as a pool and picks the ones that fit this candidate and the
+            time available. It keeps the wording as written. Every selected question is also listed at the end of the guide.</p>
+        </div>
+        <div class="card-body">
+          {% if question_groups %}
+            <div class="picker">
+              {% for group in question_groups %}
+                <details class="picker-group" data-group-box="{{ group.id }}">
+                  <summary>
+                    <span class="chev">{{ icon("chevron", 16) }}</span>
+                    <h4>{{ group.name }}</h4>
+                    <span class="badge {{ 'badge-blue' if group.is_shared() }}">{{ "Shared" if group.is_shared() else "Mine" }}</span>
+                    <span class="picker-count" data-count-for="{{ group.id }}" data-total="{{ group.questions|length }}">0 / {{ group.questions|length }}</span>
+                  </summary>
+                  <div class="picker-body">
+                    <div class="picker-tools">
+                      <button type="button" class="btn btn-ghost" onclick="toggleGroup({{ group.id }}, true)">Select all</button>
+                      <button type="button" class="btn btn-ghost" onclick="toggleGroup({{ group.id }}, false)">Clear</button>
+                    </div>
+                    {% for q in group.questions %}
+                      <label class="check">
+                        <input type="checkbox" name="question_ids" value="{{ q.id }}" data-group="{{ group.id }}">
+                        <span>{{ q.question_text }}</span>
+                      </label>
+                    {% else %}
+                      <p class="muted small">This group has no questions yet.</p>
+                    {% endfor %}
+                  </div>
+                </details>
+              {% endfor %}
+            </div>
+            <p class="hint" style="margin-top:12px">
+              <a href="{{ url_for('questions.list_groups') }}">Edit my questions</a>{% if current_user.is_admin %}
+              · <a href="{{ url_for('shared_questions.list_groups') }}">Edit shared questions</a>{% endif %}
+            </p>
+          {% else %}
+            <div class="empty" style="padding:28px 16px">
+              <p>No question groups yet.</p>
+              <a class="btn btn-outline btn-sm" href="{{ url_for('questions.list_groups') }}">{{ icon("plus", 16) }}Add questions</a>
+            </div>
+          {% endif %}
+        </div>
+      </section>
+    </div>
+
+    <aside class="split-aside">
+      <section class="card">
+        <div class="card-head"><h3>Interview setup</h3></div>
+        <div class="card-body">
+          <label class="field">
+            <span class="label">Duration</span>
+            <span class="input-suffix">
+              <input type="number" name="duration_minutes" value="40" min="15" max="180" step="5">
+              <span>min</span>
+            </span>
+          </label>
+          <label class="field">
+            <span class="label">System prompt</span>
+            <select name="prompt_id" {% if not system_prompts %}disabled{% endif %}>
+              {% for sp in system_prompts %}
+                <option value="{{ sp.id }}" {% if loop.first %}selected{% endif %}>{{ sp.name }}</option>
+              {% else %}
+                <option>No prompts yet</option>
+              {% endfor %}
+            </select>
+            {% if not system_prompts %}
+              <span class="hint" style="color:var(--danger-600)">You need a system prompt before you can generate a guide.
+                {% if current_user.is_admin %}<a href="{{ url_for('system_prompts.list_prompts') }}">Create one</a>{% else %}Ask an admin to add one.{% endif %}</span>
+            {% elif current_user.is_admin %}
+              <span class="hint"><a href="{{ url_for('system_prompts.list_prompts') }}">Manage prompts</a></span>
+            {% endif %}
+          </label>
+          <label class="field">
+            <span class="label">Model provider</span>
+            <select name="provider">
+              {% for p in providers %}
+                <option value="{{ p }}" {% if p == default_provider %}selected{% endif %}>{{ {"claude": "Claude (Anthropic)", "openai": "OpenAI"}.get(p, p) }}</option>
+              {% endfor %}
+            </select>
+          </label>
+        </div>
+      </section>
+
+      <section class="card card-pad">
+        <ul class="summary-list" aria-live="polite">
+          <li data-check="cv"><span class="dot">{{ icon("check", 12) }}</span>CV attached</li>
+          <li data-check="li"><span class="dot">{{ icon("check", 12) }}</span><span>LinkedIn added</span></li>
+          <li data-check="qs"><span class="dot">{{ icon("check", 12) }}</span><span data-qs-label>No bank questions selected</span></li>
+        </ul>
+        <button type="submit" id="generate-btn" class="btn btn-primary btn-lg btn-block" style="margin-top:20px" {% if not system_prompts %}disabled{% endif %}>
+          <span id="generate-btn-spinner" class="spinner" hidden></span>
+          <span id="generate-btn-label">Generate guide</span>
+        </button>
+        <p class="hint" style="text-align:center">This usually takes up to a minute.</p>
+      </section>
+    </aside>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<style>
+  .li-tabs:has(#li-paste:checked) .tab-paste,
+  .li-tabs:has(#li-upload:checked) .tab-upload { display: block; }
+</style>
+<script>
+  function toggleGroup(groupId, checked) {
+    document.querySelectorAll('input[data-group="' + groupId + '"]').forEach(function (el) { el.checked = checked; });
+    refresh();
+  }
+
+  // File drop zones: show the chosen file name, highlight on drag.
+  document.querySelectorAll('[data-dropzone]').forEach(function (zone) {
+    var input = zone.querySelector('input[type=file]');
+    var title = zone.querySelector('.dropzone-title');
+    var meta = zone.querySelector('.dropzone-meta');
+    function update() {
+      var f = input.files && input.files[0];
+      zone.classList.toggle('has-file', !!f);
+      title.textContent = f ? f.name : title.dataset.default;
+      meta.textContent = f ? Math.max(1, Math.round(f.size / 1024)) + ' KB · click to replace' : meta.dataset.default;
+      refresh();
+    }
+    input.addEventListener('change', update);
+    ['dragenter', 'dragover'].forEach(function (t) { zone.addEventListener(t, function () { zone.classList.add('is-drag'); }); });
+    ['dragleave', 'drop'].forEach(function (t) { zone.addEventListener(t, function () { zone.classList.remove('is-drag'); }); });
+  });
+
+  // Live checklist + per-group selected counts.
+  var form = document.getElementById('generate-form');
+  function refresh() {
+    var cv = form.querySelector('input[name=cv_file]').files.length > 0;
+    var liText = form.querySelector('textarea[name=linkedin_text]').value.trim().length > 0;
+    var liFile = form.querySelector('input[name=linkedin_file]').files.length > 0;
+    var total = 0;
+    document.querySelectorAll('[data-count-for]').forEach(function (el) {
+      var n = form.querySelectorAll('input[data-group="' + el.dataset.countFor + '"]:checked').length;
+      total += n;
+      el.textContent = n + ' / ' + el.dataset.total;
+      el.classList.toggle('has-sel', n > 0);
+    });
+    form.querySelector('[data-check=cv]').classList.toggle('is-done', cv);
+    form.querySelector('[data-check=li]').classList.toggle('is-done', liText || liFile);
+    form.querySelector('[data-check=qs]').classList.toggle('is-done', total > 0);
+    form.querySelector('[data-qs-label]').textContent = total
+      ? total + ' bank question' + (total === 1 ? '' : 's') + ' selected'
+      : 'No bank questions selected';
+  }
+  form.addEventListener('change', refresh);
+  form.addEventListener('input', refresh);
+
+  // Loading state while extraction + the LLM call run. The submit event only
+  // fires after the browser's required-field validation has passed.
+  form.addEventListener('submit', function () {
+    var btn = document.getElementById('generate-btn');
+    btn.disabled = true;
+    document.getElementById('generate-btn-spinner').hidden = false;
+    document.getElementById('generate-btn-label').textContent = 'Generating guide…';
+  });
+</script>
 {% endblock %}

@@ -1,52 +1,14 @@
 {% extends "base.html" %}
-{% block title %}Shared Questions DB{% endblock %}
+{% from "_question_bank.html" import group_list with context %}
+{% block title %}Shared questions{% endblock %}
 {% block content %}
-  <h1>Shared Questions DB</h1>
-  <p class="subtitle">Questions every user can pick from when generating a guide. Only admins can
-    add, edit, or remove them here — regular users can select but not change them. For questions
-    you don't want to share, use <a href="{{ url_for('questions.list_groups') }}">your Own Questions DB</a>.</p>
-
-  <fieldset>
-    <legend>Import from .docx</legend>
-    <p class="subtitle">Use Word heading styles: <strong>Heading 2</strong> starts a new group,
-      <strong>Heading 3</strong> starts a question. Any plain paragraphs right after a Heading 3
-      (before the next heading) become that question's explanation — each paragraph is stored as
-      its own point/line, editable later as a multi-line note.</p>
-    <form action="{{ url_for('shared_questions.import_docx') }}" method="post" enctype="multipart/form-data">
-      <label>File
-        <input type="file" name="bank_file" accept=".docx" required>
-      </label>
-      <button type="submit" class="btn-primary">Import</button>
-    </form>
-  </fieldset>
-
-  <fieldset>
-    <legend>New empty group</legend>
-    <form action="{{ url_for('shared_questions.create_group') }}" method="post">
-      <label>Group name
-        <input type="text" name="name" placeholder="e.g. Technical depth — backend" required>
-      </label>
-      <button type="submit" class="btn-primary">Create group</button>
-    </form>
-  </fieldset>
-
-  {% for group in groups %}
-    <div class="qgroup">
-      <div class="qgroup-header">
-        <form action="{{ url_for('shared_questions.rename_group', group_id=group.id) }}" method="post" class="inline-form">
-          <input type="text" name="name" value="{{ group.name }}">
-          <button type="submit" class="btn-secondary btn-sm">save name</button>
-        </form>
-        <span class="owner-note">{{ group.questions|length }} question{{ "s" if group.questions|length != 1 else "" }} &middot; added by: {{ group.owner.email }}</span>
-        <a class="btn-normal btn-sm" href="{{ url_for('shared_questions.group_detail', group_id=group.id) }}">open group</a>
-        <a class="btn-normal btn-sm" href="{{ url_for('shared_questions.preview_group', group_id=group.id) }}">display group</a>
-        <form action="{{ url_for('shared_questions.delete_group', group_id=group.id) }}" method="post" class="inline-form"
-              onsubmit="return confirm('Delete the whole group {{ group.name }}?');">
-          <button type="submit" class="btn-danger btn-sm">delete group</button>
-        </form>
-      </div>
-    </div>
-  {% else %}
-    <p>No shared question groups yet. Import a file or create a group by hand.</p>
-  {% endfor %}
+<header class="page-header">
+  <div>
+    <p class="eyebrow">Question bank</p>
+    <h1>Shared questions</h1>
+    <p class="lede">Everyone can pick these when generating a guide, but only admins can edit them.
+      For questions you want to keep to yourself, use <a href="{{ url_for('questions.list_groups') }}">My questions</a>.</p>
+  </div>
+</header>
+{{ group_list("shared_questions", groups, shared=True) }}
 {% endblock %}
