@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Users{% endblock %}
+{% block content %}
+  <h1>Users</h1>
+  <p class="subtitle">Create accounts for teammates — there's no public sign-up. Only the
+    superadmin can manage accounts.</p>
+
+  <div class="rowlist" style="--cols: 2fr 1fr 1fr auto;">
+    <div class="rowlist-row rowlist-heading">
+      <div class="rowlist-cell">Email</div>
+      <div class="rowlist-cell">Role</div>
+      <div class="rowlist-cell">Created</div>
+      <div class="rowlist-cell"></div>
+    </div>
+    {% for u in users %}
+      <div class="rowlist-row">
+        <div class="rowlist-cell">{{ u.email }}</div>
+        <div class="rowlist-cell">{{ u.role }}</div>
+        <div class="rowlist-cell">{{ u.created_at.strftime("%Y-%m-%d") if u.created_at else "-" }}</div>
+        <div class="rowlist-cell rowlist-actions">
+          {% if u.id != current_user.id %}
+          <form action="{{ url_for('auth.delete_user', user_id=u.id) }}" method="post" class="inline-form"
+                onsubmit="return confirm('Delete account {{ u.email }}?');">
+            <button type="submit" class="btn-danger btn-sm">delete</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+  <h2>New user</h2>
+  <form action="{{ url_for('auth.create_user') }}" method="post">
+    <label>Email
+      <input type="email" name="email" required>
+    </label>
+    <label>Password (min. 8 characters)
+      <input type="password" name="password" required minlength="8">
+    </label>
+    <label>Role
+      <select name="role">
+        <option value="user" selected>user</option>
+        <option value="admin">admin</option>
+        <option value="superadmin">superadmin</option>
+      </select>
+    </label>
+    <button type="submit" class="btn-primary">Create user</button>
+  </form>
+{% endblock %}

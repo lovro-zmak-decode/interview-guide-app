@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Interview Roles{% endblock %}
+{% block content %}
+  <h1>Interview Roles</h1>
+  <p class="subtitle">Shared list of role tags offered on the generate form. Admin-only to manage —
+    but any user typing a new role on the generate form still adds it here automatically.</p>
+
+  <form action="{{ url_for('roles.create_role') }}" method="post" class="inline-form">
+    <input type="text" name="name" placeholder="e.g. Backend Developer" required>
+    <button type="submit" class="btn-primary">Add role</button>
+  </form>
+
+  {% if tags %}
+    <div class="rowlist" style="--cols: 1fr auto;">
+      <div class="rowlist-row rowlist-heading">
+        <div class="rowlist-cell">Role</div>
+        <div class="rowlist-cell"></div>
+      </div>
+      {% for tag in tags %}
+        <div class="rowlist-row">
+          <div class="rowlist-cell">{{ tag.name }}</div>
+          <div class="rowlist-cell rowlist-actions">
+            <form action="{{ url_for('roles.delete_role', tag_id=tag.id) }}" method="post" class="inline-form"
+                  onsubmit="return confirm('Delete role {{ tag.name }}?');">
+              <button type="submit" class="btn-danger btn-sm">delete</button>
+            </form>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p>No roles yet. Add one above.</p>
+  {% endif %}
+{% endblock %}

@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}First-time setup{% endblock %}
+{% block content %}
+  <h1>First-time setup</h1>
+  <p class="subtitle">The database has no accounts yet. Create the first account — it automatically
+    becomes the superadmin and can invite (create) other users.</p>
+  <form action="{{ url_for('auth.setup') }}" method="post">
+    <label>Email
+      <input type="email" name="email" required autofocus>
+    </label>
+    <label>Password (min. 8 characters)
+      <input type="password" name="password" required minlength="8">
+    </label>
+    <button type="submit">Create account</button>
+  </form>
+{% endblock %}

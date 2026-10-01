@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}My guides{% endblock %}
+{% block content %}
+  <h1>My guides</h1>
+  <p class="subtitle">All the interview guides you've generated. Private — you only see your own.</p>
+
+  {% if guides %}
+    <div class="rowlist" style="--cols: 2fr 2fr 1.5fr 1fr auto;">
+      <div class="rowlist-row rowlist-heading">
+        <div class="rowlist-cell">Candidate</div>
+        <div class="rowlist-cell">Role</div>
+        <div class="rowlist-cell">Generated</div>
+        <div class="rowlist-cell">LLM</div>
+        <div class="rowlist-cell"></div>
+      </div>
+      {% for g in guides %}
+        <div class="rowlist-row">
+          <div class="rowlist-cell">{{ g.candidate_name }}</div>
+          <div class="rowlist-cell">{{ g.role_title }}</div>
+          <div class="rowlist-cell">{{ g.created_at.strftime("%Y-%m-%d %H:%M") }}</div>
+          <div class="rowlist-cell">{{ g.provider_used }}</div>
+          <div class="rowlist-cell rowlist-actions">
+            <a class="btn-normal btn-sm" href="{{ url_for('history_view', guide_id=g.id) }}">view</a>
+            <a class="btn-secondary btn-sm" href="{{ url_for('download', filename=g.docx_filename) }}">download .docx</a>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p>You haven't generated any guides yet. <a href="{{ url_for('index') }}">Generate your first one.</a></p>
+  {% endif %}
+{% endblock %}

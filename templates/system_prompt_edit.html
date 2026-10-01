@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Edit prompt — {{ prompt.name }}{% endblock %}
+{% block content %}
+  <a href="{{ url_for('system_prompts.list_prompts') }}">&larr; All system prompts</a>
+  <h1>{{ prompt.name }}</h1>
+
+  <fieldset>
+    <legend>Available variables</legend>
+    <p class="subtitle">Insert any of these into the content below — they're filled in
+      automatically when a guide is generated. Anything else in curly braces (like a pasted JSON
+      example) is left as-is.</p>
+    <div class="rowlist" style="--cols: 1fr 2fr;">
+      <div class="rowlist-row rowlist-heading">
+        <div class="rowlist-cell">Variable</div>
+        <div class="rowlist-cell">Value at generation time</div>
+      </div>
+      {% for var in variables %}
+        <div class="rowlist-row">
+          <div class="rowlist-cell"><code>{{ '{' }}{{ var.name }}{{ '}' }}</code></div>
+          <div class="rowlist-cell">{{ var.description }}</div>
+        </div>
+      {% endfor %}
+    </div>
+  </fieldset>
+
+  <form action="{{ url_for('system_prompts.update_prompt', prompt_id=prompt.id) }}" method="post">
+    <label>Name
+      <input type="text" name="name" value="{{ prompt.name }}" required>
+    </label>
+    <label>Type
+      <input type="text" name="type" value="{{ prompt.type }}" required>
+    </label>
+    <label>Content
+      <textarea name="content" rows="24">{{ prompt.content }}</textarea>
+    </label>
+
+    <fieldset>
+      <legend>Quick evaluation rows</legend>
+      <p class="subtitle">Guaranteed rows for the "Quick evaluation" table at the end of every
+        generated guide. Columns are fixed (Area, How it looks 5/5, Grade, Note) — only the rows
+        are configurable here. The LLM will try to fill each row in itself, but any row it skips
+        gets added automatically using the "How it looks 5/5" text below. Area/text can use the
+        same variables as the content above, e.g. <code>{{ '{role_title}' }} (domain knowledge)</code>.</p>
+
+      <div id="scoring-rows">
+        {% for row in scoring_rows %}
+          <div class="scoring-row">
+            <input type="text" name="row_area" value="{{ row.area }}" placeholder="Area">
+            <textarea name="row_ideal_signs" rows="3" placeholder="How it looks 5/5">{{ row.ideal_signs }}</textarea>
+            <button type="button" class="btn-danger btn-sm" onclick="this.parentElement.remove()">remove</button>
+          </div>
+        {% endfor %}
+      </div>
+      <button type="button" class="btn-secondary btn-sm" onclick="addScoringRow()">add row</button>
+    </fieldset>
+
+    <button type="submit" class="btn-primary">Save prompt</button>
+  </form>
+
+  <script>
+    function addScoringRow() {
+      var container = document.getElementById('scoring-rows');
+      var row = document.createElement('div');
+      row.className = 'scoring-row';
+      row.innerHTML =
+        '<input type="text" name="row_area" placeholder="Area">' +
+        '<textarea name="row_ideal_signs" rows="3" placeholder="How it looks 5/5"></textarea>' +
+        '<button type="button" class="btn-danger btn-sm" onclick="this.parentElement.remove()">remove</button>';
+      container.appendChild(row);
+    }
+  </script>
+{% endblock %}

@@ -1,0 +1,312 @@
+:root {
+  /* Magenta, darkened ~15% three times over from the original #ff00ff (too bright/saturated) */
+  --primary: #9c009c;
+  --primary-hover: #7d007d;
+  /* Indigo — sidebar background and .btn-secondary fill, darkened ~10% (too bright) */
+  --secondary: #440075;
+  --secondary-hover: #320055;
+  /* Dark gold accent — used for plain inline text links (not buttons/nav) */
+  --accent: #8a6314;
+  --accent-hover: #6e4e0f;
+}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: #f7f7f8;
+  color: #1a1a1a;
+  margin: 0;
+}
+/* Plain inline text links (breadcrumbs, "Manage X" hints, etc.) — anything
+   more specific (nav links, .home-icon, .btn-*) already sets its own color
+   via a class selector, which wins over this element selector regardless of
+   source order. */
+a {
+  color: var(--accent);
+}
+a:hover {
+  color: var(--accent-hover);
+}
+/* Topbar spans the full width like a page header; the sidebar + content row
+   sits below it, not beside it. Same background as the sidebar so the two
+   read as one continuous surface. */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 32px;
+  background: var(--secondary);
+}
+.app-shell {
+  display: flex;
+  min-height: calc(100vh - 57px);
+}
+.sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  background: var(--secondary);
+  padding: 24px 0;
+}
+.sidebar nav {
+  display: flex;
+  flex-direction: column;
+}
+.sidebar nav a {
+  color: #eee;
+  text-decoration: none;
+  font-size: 0.9rem;
+  padding: 12px 24px;
+}
+.sidebar nav a:hover {
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+}
+.main-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.home-icon {
+  display: inline-flex;
+  color: #fff;
+}
+.home-icon svg { width: 24px; height: 24px; }
+.home-icon:hover { color: rgba(255,255,255,0.75); }
+.container {
+  max-width: 780px;
+  margin: 40px auto;
+  padding: 32px;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+h1 { font-size: 1.6rem; margin-bottom: 4px; }
+h2 { font-size: 1.2rem; margin-top: 32px; border-bottom: 1px solid #eee; padding-bottom: 4px; }
+h3 { font-size: 1rem; margin-top: 20px; color: #444; }
+.subtitle { color: #555; margin-top: 0; }
+label { display: block; margin: 16px 0 4px; font-weight: 600; font-size: 0.9rem; }
+input[type=text], input[type=number], input[type=file], textarea, select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 0.95rem;
+}
+fieldset { border: 1px solid #ddd; border-radius: 8px; margin-top: 20px; }
+.or { text-align: center; color: #999; margin: 4px 0; }
+
+/* ============================================================
+   BUTTON SYSTEM — single source of truth for every button/button-styled
+   link in the app. Two independent axes, combined via classes:
+
+   Color  (pick exactly one): .btn-primary / .btn-secondary / .btn-normal / .btn-danger
+     - primary:   main call-to-action of a page (Generate guide, Import, Save)
+                  — a bare <button>/.button with no color class also renders
+                  as "primary" by default.
+     - secondary: a real but lower-emphasis action (Download, Save name)
+     - normal:    plain/neutral outline look (white fill, visible border), for
+                  frequent light-weight actions (Open, Display, View, Select
+                  all) — the least visually prominent color of the four.
+     - danger:    destructive actions (Delete) — always solid red.
+
+   Size (optional, default is the normal size): .btn-sm / .btn-lg
+
+   Every color variant explicitly re-declares `color` in its own :hover rule.
+   This is required, not decorative — a plain global `a:hover { color: ... }`
+   rule (further up this file) would otherwise win on specificity for any
+   button that's an <a> tag, silently recoloring its text on hover. Buttons
+   must never change text color on hover, only background/border.
+   ============================================================ */
+button, .button, .btn-primary, .btn-secondary, .btn-normal, .btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  line-height: 1.2;
+  font-family: inherit;
+  /* Normal size (default) */
+  padding: 9px 16px;
+  font-size: 0.9rem;
+}
+
+/* Size modifiers */
+.btn-sm { padding: 5px 10px; font-size: 0.78rem; gap: 4px; }
+.btn-lg { padding: 14px 24px; font-size: 1.05rem; gap: 10px; }
+
+/* Color: primary (also the default look for a plain <button>/.button with
+   no explicit color class, and the only variant that reserves top margin
+   for standing alone at the bottom of a form). */
+button, .button, .btn-primary {
+  margin-top: 24px;
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+button:hover, .button:hover, .btn-primary:hover {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+  color: #fff;
+}
+
+/* Color: secondary — solid indigo fill */
+.btn-secondary {
+  margin: 0;
+  background: var(--secondary);
+  color: #fff;
+  border-color: var(--secondary);
+}
+.btn-secondary:hover {
+  background: var(--secondary-hover);
+  border-color: var(--secondary-hover);
+  color: #fff;
+}
+
+/* Color: normal (aka "default") — plain/neutral, for frequent light-weight
+   actions. White fill with a visible border — an outline-only look, never a
+   filled background — so it reads as lower-emphasis than primary/secondary. */
+.btn-normal {
+  margin: 0;
+  background: #fff;
+  color: #333;
+  border-color: #bbb;
+}
+.btn-normal:hover {
+  background: #f5f5f5;
+  border-color: #999;
+  color: #333;
+}
+
+/* Color: danger — solid red fill, always full-color (never just an outline) */
+.btn-danger {
+  margin: 0;
+  background: #c0392b;
+  color: #fff;
+  border-color: #c0392b;
+}
+.btn-danger:hover {
+  background: #a5311f;
+  border-color: #a5311f;
+  color: #fff;
+}
+
+/* Buttons inline next to a text field (e.g. "Add role" beside its input)
+   shouldn't inherit the form-bottom spacing meant for standalone submits.
+   Same reasoning for a .btn-primary inside a row-list row (see .rowlist
+   below) or next to a group name heading (e.g. "select all"). */
+.inline-form button, .inline-form .button, .inline-form .btn-primary,
+.rowlist .btn-primary,
+.qgroup-picker h4 .btn-primary { margin-top: 0; }
+button:disabled, .button:disabled, .btn-primary:disabled,
+.btn-secondary:disabled, .btn-normal:disabled, .btn-danger:disabled { opacity: 0.7; cursor: not-allowed; }
+
+/* Small spinner shown inside a button while its request is in flight
+   (e.g. "Generate interview guide" while the LLM call is running). */
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: btn-spin 0.7s linear infinite;
+}
+/* Setting `display: inline-block` above on the plain .spinner class
+   overrides the browser's default `[hidden] { display: none }` rule
+   (author styles win over the user-agent stylesheet regardless of the
+   `hidden` attribute) — without this, the spinner shows even before the
+   button is clicked. This re-asserts hidden so JS can still show/hide it
+   by toggling the attribute. */
+.spinner[hidden] {
+  display: none;
+}
+@keyframes btn-spin {
+  to { transform: rotate(360deg); }
+}
+
+.flash { background: #fff3cd; border: 1px solid #ffe69c; padding: 10px 14px; border-radius: 6px; margin: 16px 0; }
+
+/* ============================================================
+   ROW LIST — the app's stand-in for HTML tables/lists everywhere (Interview
+   Roles, Users, System Prompts, guide history, the scoring table, etc.):
+   plain divs styled to look like a simple list of rows with actions, not a
+   real <table> or <ul>/<ol>. Column widths are set once per list via a
+   `--cols` custom property on the `.rowlist` container (a CSS grid
+   template-columns value) — every `.rowlist-row` inside inherits it, so the
+   heading row and data rows always line up without repeating the column
+   layout in every row's markup. */
+.rowlist { border: 1px solid #e5e5e5; border-radius: 8px; margin-top: 12px; overflow: hidden; }
+.rowlist-row {
+  display: grid;
+  grid-template-columns: var(--cols, 1fr auto);
+  gap: 12px;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid #f0f0f0;
+}
+.rowlist-row:last-child { border-bottom: none; }
+.rowlist-row.rowlist-heading {
+  background: #fafafa;
+  font-weight: 600;
+  font-size: 0.78rem;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.rowlist-cell { min-width: 0; font-size: 0.9rem; overflow-wrap: break-word; }
+.rowlist-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.rowlist-empty { padding: 14px; color: #666; font-size: 0.9rem; }
+
+.topbar .spacer { flex: 1; }
+.topbar .whoami { color: rgba(255,255,255,0.8); font-size: 0.85rem; }
+/* .btn-secondary is normally the same solid indigo as this topbar — without
+   an override the Log out button would blend invisibly into the background
+   it sits on. Give it a translucent-white treatment instead, just here. */
+.topbar .btn-secondary {
+  background: rgba(255,255,255,0.15);
+  border-color: rgba(255,255,255,0.4);
+}
+.topbar .btn-secondary:hover {
+  background: rgba(255,255,255,0.28);
+  border-color: rgba(255,255,255,0.6);
+  color: #fff;
+}
+
+.inline-form { display: inline-flex; align-items: center; gap: 6px; margin: 0; }
+
+.checkbox-label { display: flex; align-items: center; gap: 8px; font-weight: normal; }
+.checkbox-label input { width: auto; }
+
+.qgroup { border: 1px solid #e5e5e5; border-radius: 8px; padding: 16px; margin-top: 16px; }
+.qgroup-header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.qgroup-header input[type=text] { width: 260px; display: inline-block; }
+.qgroup-header button, .qgroup-header .button, .qgroup-header .btn-primary { margin-top: 0; }
+.owner-note { color: #999; font-size: 0.8rem; }
+.badge { font-size: 0.75rem; padding: 2px 8px; border-radius: 999px; }
+.badge.shared { background: #e6f4ea; color: #1e7e34; }
+.badge.private { background: #eef0f3; color: #555; }
+
+/* Not a real <ul> — plain divs styled to look like a simple list. */
+.qlist { margin: 12px 0; }
+.qlist .qlist-item { padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
+.qlist .qlist-item:last-child { border-bottom: none; }
+.qedit { display: block; }
+.qedit input[type=text] { width: 100%; margin: 0; }
+.qedit textarea { margin-top: 6px; font-size: 0.85rem; }
+/* Save (inside the .qedit form, via the HTML `form` attribute) and delete
+   (its own tiny empty form, same trick) render as one row here, even though
+   they submit two different <form> elements — forms can't nest, so the
+   buttons live outside both and point at them by id. */
+.qedit-actions { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+
+.qgroup-picker { border: 1px solid #e5e5e5; border-radius: 8px; padding: 12px 16px; margin-top: 10px; }
+.qgroup-picker h4 { margin: 4px 0; font-size: 0.95rem; }
+.qgroup-picker label.checkbox-label { margin: 4px 0; font-size: 0.9rem; }
+.qgroup-picker h4 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.scoring-row { display: flex; align-items: flex-start; gap: 8px; margin: 8px 0; }
+.scoring-row input[type=text] { flex: 1; width: auto; }
+.scoring-row textarea { flex: 2; width: auto; margin: 0; font-size: 0.85rem; }

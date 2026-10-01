@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}System Prompts{% endblock %}
+{% block content %}
+  <h1>System Prompts</h1>
+  <p class="subtitle">Prompt templates sent to the LLM. The interviewer picks which prompt to use
+    from a dropdown on the "Generate guide" page for each guide — there is no fallback, so a guide
+    can't be generated until at least one prompt exists and is selected.</p>
+
+  <fieldset>
+    <legend>New prompt</legend>
+    <form action="{{ url_for('system_prompts.create_prompt') }}" method="post" class="inline-form">
+      <input type="text" name="name" placeholder="Prompt name" required>
+      <input type="text" name="type" placeholder="Type" value="technical" required>
+      <button type="submit" class="btn-primary">Create</button>
+    </form>
+  </fieldset>
+
+  {% if prompts %}
+    <div class="rowlist" style="--cols: 2fr 1fr 1fr auto;">
+      <div class="rowlist-row rowlist-heading">
+        <div class="rowlist-cell">Name</div>
+        <div class="rowlist-cell">Type</div>
+        <div class="rowlist-cell">Last updated</div>
+        <div class="rowlist-cell"></div>
+      </div>
+      {% for p in prompts %}
+        <div class="rowlist-row">
+          <div class="rowlist-cell">{{ p.name }}</div>
+          <div class="rowlist-cell">{{ p.type }}</div>
+          <div class="rowlist-cell">{{ p.updated_at.strftime("%Y-%m-%d %H:%M") if p.updated_at else "-" }}</div>
+          <div class="rowlist-cell rowlist-actions">
+            <a class="btn-secondary btn-sm" href="{{ url_for('system_prompts.edit_prompt', prompt_id=p.id) }}">edit</a>
+            <form action="{{ url_for('system_prompts.delete_prompt', prompt_id=p.id) }}" method="post" class="inline-form"
+                  onsubmit="return confirm('Delete prompt {{ p.name }}?');">
+              <button type="submit" class="btn-danger btn-sm">delete</button>
+            </form>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p>No system prompts yet. Create one above.</p>
+  {% endif %}
+{% endblock %}
