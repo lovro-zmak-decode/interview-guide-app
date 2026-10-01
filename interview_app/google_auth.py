@@ -37,12 +37,18 @@ def init_google_oauth(app: Flask):
 @google_bp.route("/login")
 def login():
     """Redirect to Google OAuth login."""
+    # Check if Google OAuth is configured
+    if not (os.getenv("GOOGLE_CLIENT_ID") and os.getenv("GOOGLE_CLIENT_SECRET")):
+        logger.warning("Google OAuth button clicked but credentials not configured")
+        flash("Google sign-in is not yet configured. Please ask an admin to set it up, or use email/password login.")
+        return redirect(url_for("auth.login"))
+
     try:
         redirect_uri = os.getenv("GOOGLE_REDIRECT_URI", url_for("google_auth.callback", _external=True))
         return oauth.google.authorize_redirect(redirect_uri)
     except Exception as e:
         logger.error(f"Google OAuth login redirect failed: {e}")
-        flash("Google sign-in is not configured. Please use email/password login.")
+        flash("Google sign-in failed. Please try again or use email/password login.")
         return redirect(url_for("auth.login"))
 
 

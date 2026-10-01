@@ -54,12 +54,11 @@ def create_app(config=None):
     def load_user(user_id: str):
         return db.session.get(User, int(user_id))
 
-    # Initialize Google OAuth (optional - only if configured)
+    # Initialize Google OAuth (always available, works with or without credentials)
     try:
-        if os.getenv("GOOGLE_CLIENT_ID") and os.getenv("GOOGLE_CLIENT_SECRET"):
-            from .google_auth import init_google_oauth, google_bp
-            init_google_oauth(app)
-            app.register_blueprint(google_bp)
+        from .google_auth import init_google_oauth, google_bp
+        init_google_oauth(app)
+        app.register_blueprint(google_bp)
     except ImportError:
         pass  # authlib not installed, Google OAuth disabled
 
