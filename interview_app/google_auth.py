@@ -79,21 +79,27 @@ def callback():
             flash("Your Google account must have a verified email address.")
             return redirect(url_for("auth.login"))
 
-        # Get or create user
+        # Account merging: Get or create user by email
+        # If user already exists (from email+password signup), use same account
+        # This allows users to login with either Google OR email+password
         user = User.query.filter_by(email=email).first()
+
         if not user:
-            # Auto-create user with basic role
+            # New user: create account from Google info
             try:
                 user = User(email=email, role="user")
                 user.set_password(email)  # Dummy password (OAuth doesn't use passwords)
                 db.session.add(user)
                 db.session.commit()
-                logger.info(f"Auto-created user from Google OAuth: {email}")
+                logger.info(f"New user created via Google OAuth: {email}")
             except Exception as e:
                 logger.error(f"Failed to create user from Google OAuth: {e}")
                 db.session.rollback()
                 flash("Failed to create account. Please contact an administrator.")
                 return redirect(url_for("auth.login"))
+        else:
+            # Existing user: account merge - user can now login with Google too
+            logger.info(f"Existing user logged in via Google OAuth (account merge): {email}")
 
         # Log in the user
         login_user(user)
