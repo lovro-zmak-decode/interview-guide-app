@@ -234,6 +234,21 @@ def build_docx(
             cells[2].text = "\n".join(grades)
             cells[3].text = "\n".join(notes)
 
+    # The interviewers' own extra questions, before the question bank appendix.
+    for log in logs:
+        items = log.get("custom_questions") or []
+        if not items:
+            continue
+        doc.add_heading("Own questions" + (f" ({who(log)})" if who(log) else ""), level=1)
+        for i, item in enumerate(items, start=1):
+            q_para = doc.add_paragraph()
+            q_para.add_run(f"O{i}. {item.get('question') or '(no question text)'}").bold = True
+            if item.get("answer"):
+                note = doc.add_paragraph()
+                note.add_run("Notes on the answer: ").bold = True
+                note.add_run(item["answer"])
+                note.paragraph_format.left_indent = Pt(18)
+
     # Reference appendix — the interviewer's full original Questions DB
     # selection, unnumbered and placed at the very end so it doesn't compete
     # with the timed guide above. The guide's own sections already picked

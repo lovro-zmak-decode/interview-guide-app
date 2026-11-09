@@ -160,13 +160,17 @@ def _display_name(user: User) -> str:
 def _participant_logs(guide: GeneratedGuide, full: bool = False) -> list[dict]:
     """Everyone's notes on this guide that have any content or an interview in
     progress, oldest first, each as {"user_id", "name", "started", "data"}.
-    Unless `full` is set, only the current user's own entry is complete; for
-    everyone else the scoring is removed (see interview_log.shareable)."""
+    The current user's own entry is always complete. Someone else's grades,
+    recommendations and summary (see interview_log.shareable) are hidden only
+    while an interview is in progress, either theirs or the current user's, so
+    nobody is influenced mid-interview. Once both are done everything is
+    visible. `full` skips the hiding (used for the Word export)."""
     logs = InterviewLog.query.filter_by(guide_id=guide.id).order_by(InterviewLog.id).all()
+    i_am_interviewing = any(l.started for l in logs if l.user_id == current_user.id)
     out = []
     for log in logs:
         data = ilog.parse_data(log.data_json)
-        if log.user_id != current_user.id and not full:
+        if log.user_id != current_user.id and not full and (log.started or i_am_interviewing):
             data = ilog.shareable(data)
         if log.started or ilog.has_content(data):
             out.append({"user_id": log.user_id, "name": _display_name(log.user), "started": log.started, "data": data})
@@ -262,7 +266,7 @@ def generate_guide_debrief(guide_id: int):
         "candidate_name": summary.candidate_name,
         "role_title": summary.role_title,
         "candidate_profile": summary.profile_and_goals,
-        "questions_and_answers": ilog.questions_and_answers_text(summary, data["answers"]),
+        "questions_and_answers": ilog.questions_and_answers_text(summary, data["answers"], data["custom_questions"]),
         "live_notes": data["live_notes"].strip() or "(no notes)",
         "evaluation": ilog.evaluation_text(summary, data["evaluation"]),
         "overall_recommendation": data["recommendation"] or "(not set)",
@@ -585,7 +589,7 @@ def download(filename: str):
         ]
         if logs:
             # The Word report is the complete record: everyone's notes and everyone's
-            # scoring, labelled by name. On the page the scoring stays private.
+            # scoring, labelled by name.
             buffer = io.BytesIO()
             build_docx(
                 InterviewSummary.model_validate_json(guide.summary_json),

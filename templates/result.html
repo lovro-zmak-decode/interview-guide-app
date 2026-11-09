@@ -1,6 +1,18 @@
 {% extends "base.html" %}
 {% block title %}{{ summary.candidate_name }} · {{ summary.title }}{% endblock %}
 
+{% macro own_question_entry(item) -%}
+  <div class="own-q" data-own-q>
+    <label class="iv-answer"><span>Your question</span>
+      <textarea data-cq-question rows="2" placeholder="Write a question you want to ask">{{ item.get("question", "") }}</textarea>
+    </label>
+    <label class="iv-answer"><span>How they answered</span>
+      <textarea data-cq-answer rows="4" placeholder="Notes on the candidate's answer">{{ item.get("answer", "") }}</textarea>
+    </label>
+    <button type="button" class="btn btn-ghost btn-sm is-danger" data-cq-remove>Remove this question</button>
+  </div>
+{%- endmacro %}
+
 {% macro question_cards(questions, prefix="", key="") -%}
   <div class="q-list">
     {% for q in questions %}
@@ -26,7 +38,8 @@
 {%- endmacro %}
 
 {% block content %}
-{% set has_notes = iv.answers or iv.live_notes.strip() or iv.evaluation %}
+{% set has_notes = iv.answers or iv.live_notes.strip() or iv.evaluation or iv.custom_questions %}
+{% set show_bank = summary.curated_question_groups or iv_editing or iv.custom_questions %}
 {% set show_outcome = iv.summary or iv.second_round or iv.live_notes.strip() or iv_editing or (can_edit and has_notes) %}
 {% set sections = [
   ("profile", "Profile and goals", None),
@@ -75,11 +88,11 @@
   {% if not iv_editing %}
   <nav class="toc" aria-label="Guide sections">
     <p>Sections</p>
-    {% if show_outcome %}<a href="#outcome" data-toc="outcome"><span>Interview outcome</span></a>{% endif %}
+    <a href="#outcome" data-toc="outcome" id="toc-outcome" {{ "hidden" if not show_outcome }}><span>Interview outcome</span></a>
     {% for id, label, mins in sections %}
       <a href="#{{ id }}" data-toc="{{ id }}"><span>{{ label }}</span>{% if mins %}<span class="toc-min">{{ mins }}′</span>{% endif %}</a>
     {% endfor %}
-    {% if summary.curated_question_groups %}<a href="#bank" data-toc="bank"><span>From the question bank</span></a>{% endif %}
+    <a href="#bank" data-toc="bank" id="toc-bank" {{ "hidden" if not show_bank }}><span>{{ "From the question bank" if summary.curated_question_groups else "Own questions" }}</span></a>
     {% if followed_links %}<a href="#links" data-toc="links"><span>Links checked</span></a>{% endif %}
   </nav>
   {% endif %}
@@ -96,8 +109,7 @@
   </div>
 
   <div>
-    {% if show_outcome %}
-    <section class="guide-section" id="outcome">
+    <section class="guide-section" id="outcome" data-own="{{ 1 if show_outcome else 0 }}" {{ "hidden" if not show_outcome }}>
       <div class="section-title"><h2>Interview outcome</h2>
         {% if iv.summary %}<span class="badge {{ 'badge-success' if iv.summary.reviewed }}">{{ "Reviewed" if iv.summary.reviewed else "Draft for review" }}</span>{% endif %}
       </div>
@@ -149,9 +161,9 @@
             <p class="prose pre-line">{{ iv.live_notes }}</p>
           </div>
         {% endif %}
+        <div id="others-decisions" class="stack" hidden></div>
       </div>
     </section>
-    {% endif %}
 
     <section class="guide-section" id="profile">
       <div class="section-title"><span class="step">1</span><h2>Candidate profile and interview goals</h2></div>
@@ -223,6 +235,7 @@
                 <td data-label="Note">
                   {% if iv_editing %}<textarea data-evnote="{{ loop.index0 }}" rows="4" aria-label="Note for {{ row.area }}">{{ ev.get('note', '') }}</textarea>
                   {% else %}{{ ev.get("note", "") }}{% endif %}
+                  <div class="others-notes" data-others-eval="{{ loop.index0 }}"></div>
                 </td>
               </tr>
             {% endfor %}
@@ -237,24 +250,50 @@
           {% endfor %}
         </div>
       {% elif iv.recommendation %}
-        <p class="hint">Overall recommendation: <strong>{{ iv.recommendation }}</strong></p>
+        <p class="hint">Your overall recommendation: <strong>{{ iv.recommendation }}</strong></p>
       {% else %}
         <p class="hint">Overall recommendation: <strong>{{ summary.overall_recommendation_scale }}</strong>.
           {% if can_edit %}Start the interview to fill in grades and notes here.{% else %}Grades and notes are filled in during the interview.{% endif %}</p>
       {% endif %}
+      <div id="others-recommendations" class="others-notes"></div>
     </section>
 
-    {% if summary.curated_question_groups %}
-      <section class="guide-section" id="bank">
-        <div class="section-title"><h2>Selected from the question bank</h2></div>
-        <p class="hint" style="margin:-6px 0 14px">For reference. These are all the bank questions you selected. The sections above
+    <section class="guide-section" id="bank" data-own="{{ 1 if show_bank else 0 }}" {{ "hidden" if not show_bank }}>
+      <div class="section-title"><h2>{{ "Selected from the question bank" if summary.curated_question_groups else "Own questions" }}</h2></div>
+
+      {% if iv_editing %}
+        <p class="guide-sub">Your own questions</p>
+        <p class="hint" style="margin:-4px 0 12px">Add any question you want to ask. They are saved with the interview, go into the summary,
+          and stay above the bank questions.</p>
+        <div id="own-questions" class="stack">
+          {% for item in (iv.custom_questions or [{}]) %}{{ own_question_entry(item) }}{% endfor %}
+        </div>
+        <button type="button" class="btn btn-outline btn-sm" id="add-own-question" style="margin-top:12px">{{ icon("plus", 16) }}Add another question</button>
+        <template id="own-q-template">{{ own_question_entry({}) }}</template>
+      {% elif iv.custom_questions %}
+        <p class="guide-sub">Your own questions</p>
+        <div class="q-list">
+          {% for item in iv.custom_questions %}
+            <article class="q-card">
+              <span class="q-num">O{{ loop.index }}</span>
+              <p class="q-text">{{ item.question }}</p>
+              {% if item.answer %}<div class="answer-note"><b>How they answered</b><p>{{ item.answer }}</p></div>{% endif %}
+            </article>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <div id="others-custom" class="others-notes"></div>
+
+      {% if summary.curated_question_groups %}
+        <p class="hint" style="margin:18px 0 14px">For reference. These are all the bank questions you selected. The sections above
           already use the ones that fit, so you don't need to ask these again.</p>
         {% for curated in summary.curated_question_groups %}
           <p class="guide-sub">{{ curated.group_name }}</p>
           {{ question_cards(curated.questions) }}
         {% endfor %}
-      </section>
-    {% endif %}
+      {% endif %}
+    </section>
 
     {% if followed_links %}
       <section class="guide-section" id="links">
@@ -316,9 +355,9 @@
 
     var pending = emptyPending(), inflight = null, timer = null;
 
-    function emptyPending() { return { answers: {}, evaluation: {}, live_notes: null, recommendation: null, second_round: null }; }
+    function emptyPending() { return { answers: {}, evaluation: {}, custom_questions: null, live_notes: null, recommendation: null, second_round: null }; }
     function isEmpty(p) {
-      return !Object.keys(p.answers).length && !Object.keys(p.evaluation).length &&
+      return !Object.keys(p.answers).length && !Object.keys(p.evaluation).length && p.custom_questions === null &&
         p.live_notes === null && p.recommendation === null && p.second_round === null;
     }
     function mergePending(older, newer) {
@@ -327,7 +366,7 @@
       [older.evaluation, newer.evaluation].forEach(function (ev) {
         Object.keys(ev).forEach(function (i) { out.evaluation[i] = Object.assign({}, out.evaluation[i], ev[i]); });
       });
-      ['live_notes', 'recommendation', 'second_round'].forEach(function (k) {
+      ['custom_questions', 'live_notes', 'recommendation', 'second_round'].forEach(function (k) {
         out[k] = newer[k] !== null ? newer[k] : older[k];
       });
       return out;
@@ -336,7 +375,7 @@
       var body = {};
       if (Object.keys(p.answers).length) body.answers = p.answers;
       if (Object.keys(p.evaluation).length) body.evaluation = p.evaluation;
-      ['live_notes', 'recommendation', 'second_round'].forEach(function (k) { if (p[k] !== null) body[k] = p[k]; });
+      ['custom_questions', 'live_notes', 'recommendation', 'second_round'].forEach(function (k) { if (p[k] !== null) body[k] = p[k]; });
       return body;
     }
     function setState(text, isError) {
@@ -388,6 +427,7 @@
       if (t.dataset.answer) { pending.answers[t.dataset.answer] = t.value; touch(); }
       else if (t.hasAttribute('data-live')) { pending.live_notes = t.value; touch(); }
       else if (t.dataset.evnote !== undefined) { evEntry(t.dataset.evnote).note = t.value; touch(); }
+      else if (t.hasAttribute('data-cq-question') || t.hasAttribute('data-cq-answer')) { pending.custom_questions = collectOwnQuestions(); touch(); }
     });
     document.addEventListener('change', function (e) {
       var t = e.target;
@@ -465,6 +505,29 @@
         .then(function () { location.reload(); }).catch(fail(btn));
     });
 
+    // The interviewer's own extra questions: a list saved as a whole.
+    function collectOwnQuestions() {
+      return Array.prototype.map.call(document.querySelectorAll('#own-questions [data-own-q]'), function (e) {
+        return { question: e.querySelector('[data-cq-question]').value, answer: e.querySelector('[data-cq-answer]').value };
+      });
+    }
+    function addOwnQuestion(item) {
+      var tpl = byId('own-q-template'), list = byId('own-questions');
+      if (!tpl || !list) return null;
+      var entry = tpl.content.firstElementChild.cloneNode(true);
+      if (item) { entry.querySelector('[data-cq-question]').value = item.question || ''; entry.querySelector('[data-cq-answer]').value = item.answer || ''; }
+      list.appendChild(entry);
+      return entry;
+    }
+    on('add-own-question', function () { addOwnQuestion().querySelector('[data-cq-question]').focus(); });
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest && e.target.closest('[data-cq-remove]');
+      if (!btn) return;
+      btn.closest('[data-own-q]').remove();
+      if (!document.querySelector('#own-questions [data-own-q]')) addOwnQuestion();
+      pending.custom_questions = collectOwnQuestions(); touch();
+    });
+
     // What the other interviewers have written: shown read-only, refreshed by polling.
     var OTHERS_URL = {{ url_for('interview_others', guide_id=guide_id) | tojson }};
     var POLL_MS = {{ poll_seconds }} * 1000;
@@ -481,10 +544,10 @@
       return d;
     }
     function renderOthers(list) {
-      document.querySelectorAll('[data-others-answer]').forEach(function (c) { c.replaceChildren(); });
-      var live = byId('others-live'), presence = byId('presence');
-      live.replaceChildren();
-      var active = [];
+      document.querySelectorAll('[data-others-answer], [data-others-eval]').forEach(function (c) { c.replaceChildren(); });
+      var live = byId('others-live'), dec = byId('others-decisions'), presence = byId('presence'), custom = byId('others-custom');
+      live.replaceChildren(); dec.replaceChildren(); byId('others-recommendations').replaceChildren(); custom.replaceChildren();
+      var active = [], hasDecisions = false;
       list.forEach(function (p) {
         var d = p.data || {};
         if (p.started) active.push(p.name);
@@ -492,9 +555,36 @@
           var c = document.querySelector('[data-others-answer="' + k + '"]');
           if (c) c.appendChild(noteBlock(p.name, d.answers[k]));
         });
+        Object.keys(d.evaluation || {}).forEach(function (i) {
+          var c = document.querySelector('[data-others-eval="' + i + '"]'), e = d.evaluation[i] || {};
+          if (c && (e.grade || e.note)) c.appendChild(noteBlock(p.name + (e.grade ? ' · ' + e.grade + '/5' : ''), e.note || ''));
+        });
+        (d.custom_questions || []).forEach(function (item) {
+          var box = noteBlock(p.name + ' · own question', item.question || '');
+          if (item.answer) box.appendChild(el('p', 'own-answer', item.answer));
+          custom.appendChild(box);
+        });
         if ((d.live_notes || '').trim()) live.appendChild(noteBlock(p.name + ' · interview notes', d.live_notes));
+        if (d.recommendation) byId('others-recommendations').appendChild(noteBlock(p.name + ' · overall recommendation', d.recommendation));
+        var parts = [];
+        if (d.recommendation) parts.push('Recommendation: ' + d.recommendation);
+        if (d.second_round) parts.push('Preporuka za drugi krug: ' + d.second_round);
+        if (parts.length || d.summary) {
+          var box = noteBlock(p.name, parts.join('  |  '));
+          if (d.summary) {
+            var det = el('details');
+            det.appendChild(el('summary', '', d.summary.reviewed ? 'Summary (reviewed)' : 'Summary (draft)'));
+            det.appendChild(el('p', 'pre-line', d.summary.summary + (d.summary.second_round_suggestions ? '\n\n' + d.summary.second_round_suggestions : '')));
+            box.appendChild(det);
+          }
+          dec.appendChild(box); hasDecisions = true;
+        }
       });
-      live.hidden = !live.children.length;
+      live.hidden = !live.children.length; dec.hidden = !hasDecisions;
+      var bank = byId('bank'), tocBank = byId('toc-bank');
+      if (bank.dataset.own !== '1') { bank.hidden = !custom.children.length; if (tocBank) tocBank.hidden = !custom.children.length; }
+      var outcome = byId('outcome'), tocLink = byId('toc-outcome');
+      if (outcome.dataset.own !== '1') { outcome.hidden = !hasDecisions; if (tocLink) tocLink.hidden = !hasDecisions; }
       presence.textContent = active.length ? 'Also interviewing: ' + active.join(', ') : '';
       presence.hidden = !active.length;
     }
@@ -523,6 +613,11 @@
           if (d.evaluation[i].grade !== undefined && g) { g.value = d.evaluation[i].grade; evEntry(i).grade = d.evaluation[i].grade; }
           if (d.evaluation[i].note !== undefined && n) { n.value = d.evaluation[i].note; evEntry(i).note = d.evaluation[i].note; }
         });
+        if (Array.isArray(d.custom_questions) && byId('own-questions')) {
+          byId('own-questions').replaceChildren();
+          (d.custom_questions.length ? d.custom_questions : [null]).forEach(function (item) { addOwnQuestion(item); });
+          pending.custom_questions = d.custom_questions;
+        }
         var live = document.querySelector('[data-live]');
         if (d.live_notes !== null && d.live_notes !== undefined && live) { live.value = d.live_notes; pending.live_notes = d.live_notes; }
         ['recommendation', 'second_round'].forEach(function (name) {
