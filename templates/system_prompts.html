@@ -56,7 +56,10 @@
         </label>
         <label class="field">
           <span class="label">Type</span>
-          <input type="text" name="type" value="technical" required>
+          <input type="text" name="type" value="technical" list="prompt-types" required>
+          <datalist id="prompt-types">{% for t in prompt_types %}<option value="{{ t }}">{% endfor %}</datalist>
+          <span class="hint"><code>technical</code> generates the interview guide. <code>summary</code> writes the
+            end-of-interview summary.</span>
         </label>
         <button type="submit" class="btn btn-dark btn-block" style="margin-top:16px">{{ icon("plus", 16) }}Create and edit</button>
         <p class="hint">You'll write the prompt text on the next screen.</p>

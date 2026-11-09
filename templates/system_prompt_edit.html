@@ -21,7 +21,8 @@
             </label>
             <label class="field">
               <span class="label">Type</span>
-              <input type="text" name="type" value="{{ prompt.type }}" required>
+              <input type="text" name="type" value="{{ prompt.type }}" list="prompt-types" required>
+              <datalist id="prompt-types">{% for t in prompt_types %}<option value="{{ t }}">{% endfor %}</datalist>
             </label>
           </div>
           <label class="field" style="margin-top:18px">
@@ -33,6 +34,7 @@
         </div>
       </section>
 
+      {% if prompt.type != "summary" %}
       <section class="card">
         <div class="card-head">
           <h2>Quick evaluation rows</h2>
@@ -55,6 +57,7 @@
           <button type="button" class="btn btn-outline btn-sm" style="margin-top:14px" onclick="addScoringRow()">{{ icon("plus", 16) }}Add row</button>
         </div>
       </section>
+      {% endif %}
 
       <div class="savebar">
         <button type="submit" class="btn btn-primary">{{ icon("check", 16) }}Save prompt</button>
@@ -67,7 +70,7 @@
       <section class="card">
         <div class="card-head">
           <h3>Variables</h3>
-          <p class="hint">Click one to insert it at the cursor. They're filled in when a guide is generated.
+          <p class="hint">Click one to insert it at the cursor. They're filled in when {{ "the summary" if prompt.type == "summary" else "a guide" }} is generated.
             Anything else in curly braces, like a JSON example, stays as it is.</p>
         </div>
         <div class="card-body" style="padding:10px">

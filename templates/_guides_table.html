@@ -29,6 +29,12 @@
             <td class="cell-actions">
               <div class="row">
                 <a class="btn btn-outline btn-sm" href="{{ url_for('history_view', guide_id=g.id) }}">{{ icon("eye", 16) }}Open</a>
+                <a class="btn btn-ghost btn-sm btn-icon" href="{{ url_for('clone_guide', guide_id=g.id) }}" aria-label="Regenerate guide for {{ g.candidate_name }} with changes" title="Regenerate with changes">{{ icon("plus", 16) }}</a>
+                <form action="{{ url_for('delete_guide', guide_id=g.id) }}" method="post" style="display:inline"
+                      onsubmit="return confirm('Delete this guide? This cannot be undone.');">
+                  <input type="hidden" name="next" value="{{ 'all_guides' if request.endpoint == 'all_guides' else 'history' }}">
+                  <button type="submit" class="btn btn-ghost btn-sm btn-icon" aria-label="Delete guide for {{ g.candidate_name }}" title="Delete">{{ icon("trash", 16) }}</button>
+                </form>
                 <a class="btn btn-ghost btn-sm btn-icon" href="{{ url_for('download', filename=g.docx_filename) }}" aria-label="Download .docx for {{ g.candidate_name }}" title="Download .docx">{{ icon("download", 16) }}</a>
               </div>
             </td>

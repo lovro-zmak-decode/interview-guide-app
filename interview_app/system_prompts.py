@@ -21,7 +21,7 @@ from flask import Blueprint, flash, redirect, render_template, request, url_for
 
 from .auth import admin_required
 from .models import SystemPrompt, db
-from .prompts import PROMPT_VARIABLES
+from .prompts import PROMPT_TYPES, variables_for_type
 
 
 system_prompts_bp = Blueprint("system_prompts", __name__, url_prefix="/system-prompts")
@@ -45,7 +45,7 @@ def _scoring_rows_from_form() -> str:
 @admin_required
 def list_prompts():
     prompts = SystemPrompt.all_sorted()
-    return render_template("system_prompts.html", prompts=prompts)
+    return render_template("system_prompts.html", prompts=prompts, prompt_types=PROMPT_TYPES)
 
 
 @system_prompts_bp.route("/", methods=["POST"])
@@ -71,7 +71,8 @@ def edit_prompt(prompt_id: int):
     return render_template(
         "system_prompt_edit.html",
         prompt=prompt,
-        variables=PROMPT_VARIABLES,
+        variables=variables_for_type(prompt.type),
+        prompt_types=PROMPT_TYPES,
         scoring_rows=prompt.get_scoring_rows(),
     )
 

@@ -146,6 +146,14 @@ class GeneratedGuide(db.Model):
     summary_json = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
+    # Inputs the guide was generated from, kept so it can be cloned and
+    # regenerated with different settings. Null on guides created before
+    # cloning existed (those can still prefill the form but need a CV again).
+    research_text = db.Column(db.Text)
+    question_ids_json = db.Column(db.Text)
+    prompt_id = db.Column(db.Integer)
+    additional_notes = db.Column(db.Text)
+
     user = db.relationship("User", backref=db.backref("generated_guides", cascade="all, delete-orphan"))
 
     @staticmethod
@@ -159,6 +167,37 @@ class GeneratedGuide(db.Model):
         """Every generated guide across every user, most recent first — the
         "All guides" admin page. Unlike list_for(), not scoped to one user."""
         return GeneratedGuide.query.order_by(GeneratedGuide.created_at.desc())
+
+
+class InterviewLog(db.Model):
+    """One user's notes for one guide: how the candidate answered each
+    question, free-form live notes, the Quick evaluation grades, the
+    interviewer's own recommendations and the AI-written summary they review.
+    One row per (guide, user), so several people can add notes to the same
+    guide later; only the row's own user may edit it. `started` is that user's
+    "Interview started" mode for the guide. The notes themselves live in
+    `data_json` (see interview_app.interview_log for the shape)."""
+
+    __tablename__ = "interview_log"
+    __table_args__ = (db.UniqueConstraint("guide_id", "user_id", name="uq_interview_log_guide_user"),)
+
+    id = db.Column(db.Integer, primary_key=True)
+    guide_id = db.Column(db.Integer, db.ForeignKey("generated_guide.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    started = db.Column(db.Boolean, nullable=False, default=False)
+    data_json = db.Column(db.Text, nullable=False, default="{}")
+    updated_at = db.Column(
+        db.DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    guide = db.relationship("GeneratedGuide", backref=db.backref("interview_logs", cascade="all, delete-orphan"))
+    user = db.relationship("User", backref=db.backref("interview_logs", cascade="all, delete-orphan"))
+
+    @staticmethod
+    def for_guide_and_user(guide_id: int, user_id: int) -> "InterviewLog | None":
+        return InterviewLog.query.filter_by(guide_id=guide_id, user_id=user_id).first()
 
 
 class InterviewRole(db.Model):

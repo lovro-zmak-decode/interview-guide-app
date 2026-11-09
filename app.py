@@ -17,26 +17,31 @@ Then open http://127.0.0.1:5001
 
 from __future__ import annotations
 
+import glob
+import io
+import json
 import os
+import re
 import uuid
 import logging
 from collections import OrderedDict
 from datetime import datetime
 
 from dotenv import load_dotenv
-from flask import Flask, render_template, request, send_file, flash, redirect, url_for
+from flask import Flask, jsonify, render_template, request, send_file, flash, redirect, url_for
 from flask_login import LoginManager, current_user, login_required
 from sqlalchemy import inspect, text
 
 from interview_app.auth import auth_bp, admin_required
 from interview_app.extractors import extract_text_from_file, gather_research
 from interview_app.llm_providers import get_provider, available_providers, LLMConfigError
-from interview_app.models import GeneratedGuide, InterviewRole, Question, QuestionGroup, SystemPrompt, User, db
+from interview_app.models import GeneratedGuide, InterviewLog, InterviewRole, Question, QuestionGroup, SystemPrompt, User, db
 from interview_app.question_bank import qb_bp
 from interview_app.roles import roles_bp
 from interview_app.shared_questions import shared_qb_bp
 from interview_app.system_prompts import system_prompts_bp
-from interview_app.summarizer import generate_interview_summary, SummaryGenerationError
+from interview_app.summarizer import generate_interview_debrief, generate_interview_summary, SummaryGenerationError
+from interview_app import interview_log as ilog
 from interview_app.docx_generator import build_docx
 from interview_app.schema import (
     CuratedQuestionGroup,
@@ -52,6 +57,9 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 
 ALLOWED_CV_EXTENSIONS = {".pdf", ".docx", ".txt"}
+
+# While an interview is running, edits are sent to the server at most this often.
+INTERVIEW_AUTOSAVE_SECONDS = 30
 
 # Create app using factory function
 from interview_app import create_app
@@ -77,9 +85,18 @@ def require_setup_or_login():
     return None
 
 
-@app.route("/", methods=["GET"])
-@login_required
-def index():
+def _get_accessible_guide(guide_id_raw) -> GeneratedGuide | None:
+    """The guide with this id if the current user may see it (owner or admin),
+    else None. Used for cloning, where a bad/foreign id just means "no source"."""
+    if not guide_id_raw or not str(guide_id_raw).isdigit():
+        return None
+    guide = db.session.get(GeneratedGuide, int(guide_id_raw))
+    if guide is None or (guide.user_id != current_user.id and not current_user.is_admin):
+        return None
+    return guide
+
+
+def _render_index(prefill: dict | None = None):
     groups = QuestionGroup.visible_to(current_user).all()
     # Most recently updated first — the top one is also what generation falls
     # back to if no prompt is explicitly picked, so it doubles as the sane
@@ -94,7 +111,146 @@ def index():
         question_groups=groups,
         interview_roles=InterviewRole.all_sorted(),
         system_prompts=system_prompts,
+        prefill=prefill,
     )
+
+
+@app.route("/", methods=["GET"])
+@login_required
+def index():
+    return _render_index()
+
+
+@app.route("/history/<int:guide_id>/clone", methods=["GET"])
+@login_required
+def clone_guide(guide_id: int):
+    """The generate form prefilled from an earlier guide, so it can be
+    regenerated with different settings without re-entering everything."""
+    guide = _get_accessible_guide(guide_id)
+    if guide is None:
+        flash("You don't have access to this guide.")
+        return redirect(url_for("history"))
+
+    summary = InterviewSummary.model_validate_json(guide.summary_json)
+    try:
+        question_ids = [int(i) for i in json.loads(guide.question_ids_json or "[]")]
+    except (ValueError, TypeError):
+        question_ids = []
+
+    prefill = {
+        "guide_id": guide.id,
+        "candidate_name": guide.candidate_name,
+        "role_title": guide.role_title,
+        "duration_minutes": summary.duration_minutes,
+        "provider": guide.provider_used,
+        "prompt_id": guide.prompt_id,
+        "question_ids": set(question_ids),
+        "has_research": bool(guide.research_text),
+        "additional_notes": guide.additional_notes or "",
+    }
+    return _render_index(prefill)
+
+
+def _owner_log(guide: GeneratedGuide) -> InterviewLog | None:
+    """The guide owner's notes. For now only the owner writes notes, so this is
+    what everyone who can open the guide sees (read-only unless it is theirs)."""
+    return InterviewLog.for_guide_and_user(guide.id, guide.user_id)
+
+
+def _interview_context(guide: GeneratedGuide, summary: InterviewSummary) -> dict:
+    """Template variables for result.html: the notes to show, and whether the
+    current user may edit them (only the guide's owner)."""
+    log = _owner_log(guide)
+    can_edit = guide.user_id == current_user.id
+    started = bool(log and log.started)
+    return {
+        "guide_id": guide.id,
+        "can_edit": can_edit,
+        "iv": ilog.parse_data(log.data_json if log else None),
+        "iv_started": started,
+        "iv_editing": can_edit and started,
+        "rec_options": ilog.recommendation_options(summary),
+        "autosave_seconds": INTERVIEW_AUTOSAVE_SECONDS,
+    }
+
+
+def _owned_guide_or_error(guide_id: int):
+    """(guide, None) if the current user owns the guide, else (None, json error response)."""
+    guide = db.session.get(GeneratedGuide, guide_id)
+    if guide is None:
+        return None, (jsonify(error="Guide not found."), 404)
+    if guide.user_id != current_user.id:
+        return None, (jsonify(error="Only the guide's owner can edit its notes."), 403)
+    return guide, None
+
+
+def _get_or_create_log(guide: GeneratedGuide) -> InterviewLog:
+    log = InterviewLog.for_guide_and_user(guide.id, current_user.id)
+    if log is None:
+        log = InterviewLog(guide_id=guide.id, user_id=current_user.id, data_json="{}")
+        db.session.add(log)
+    return log
+
+
+@app.route("/history/<int:guide_id>/log", methods=["POST"])
+@login_required
+def save_interview_log(guide_id: int):
+    guide, error = _owned_guide_or_error(guide_id)
+    if error:
+        return error
+    if request.content_length and request.content_length > ilog.MAX_BODY_BYTES:
+        return jsonify(error="Too much text in one save."), 413
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify(error="Expected a JSON object."), 400
+
+    summary = InterviewSummary.model_validate_json(guide.summary_json)
+    log = _get_or_create_log(guide)
+    try:
+        data = ilog.merge_update(ilog.parse_data(log.data_json), payload, summary)
+    except ValueError as exc:
+        return jsonify(error=str(exc)), 400
+    if "started" in payload:
+        log.started = bool(payload["started"])
+    log.data_json = json.dumps(data, ensure_ascii=False)
+    db.session.commit()
+    return jsonify(ok=True)
+
+
+@app.route("/history/<int:guide_id>/summary", methods=["POST"])
+@login_required
+def generate_guide_debrief(guide_id: int):
+    """Writes (or rewrites) the AI summary from the owner's notes, for the
+    owner to review. Replaces any earlier summary and marks it unreviewed."""
+    guide, error = _owned_guide_or_error(guide_id)
+    if error:
+        return error
+
+    summary = InterviewSummary.model_validate_json(guide.summary_json)
+    log = _get_or_create_log(guide)
+    data = ilog.parse_data(log.data_json)
+    variables = {
+        "candidate_name": summary.candidate_name,
+        "role_title": summary.role_title,
+        "candidate_profile": summary.profile_and_goals,
+        "questions_and_answers": ilog.questions_and_answers_text(summary, data["answers"]),
+        "live_notes": data["live_notes"].strip() or "(no notes)",
+        "evaluation": ilog.evaluation_text(summary, data["evaluation"]),
+        "overall_recommendation": data["recommendation"] or "(not set)",
+    }
+    try:
+        provider = get_provider(guide.provider_used)
+        debrief = generate_interview_debrief(provider, variables)
+    except (LLMConfigError, SummaryGenerationError) as exc:
+        return jsonify(error=str(exc)), 502
+    except Exception as exc:
+        logging.exception("Summary generation failed")
+        return jsonify(error=f"The model call failed: {exc}"), 502
+
+    ilog.store_summary(data, debrief.summary, debrief.second_round_suggestions)
+    log.data_json = json.dumps(data, ensure_ascii=False)
+    db.session.commit()
+    return jsonify(ok=True)
 
 
 def _section_minutes(summary: InterviewSummary) -> dict:
@@ -173,6 +329,7 @@ def generate():
     role_title = request.form.get("role_title", "").strip()
     duration_minutes = int(request.form.get("duration_minutes") or 60)
     provider_name = request.form.get("provider") or None
+    additional_notes = request.form.get("additional_notes", "").strip()
     linkedin_text_input = request.form.get("linkedin_text", "").strip()
     prompt_id_raw = request.form.get("prompt_id")
     prompt_id = int(prompt_id_raw) if prompt_id_raw and prompt_id_raw.isdigit() else None
@@ -182,7 +339,15 @@ def generate():
 
     selected_question_ids = [int(v) for v in request.form.getlist("question_ids") if v.isdigit()]
 
-    if not cv_file or cv_file.filename == "":
+    # Cloning: reuse the research text stored on an earlier guide (the
+    # candidate's CV, LinkedIn and linked pages as already extracted) unless a
+    # new CV is attached, in which case the form's own materials win.
+    source_guide = _get_accessible_guide(request.form.get("clone_from"))
+    stored_research = source_guide.research_text if source_guide else None
+    has_new_cv = bool(cv_file and cv_file.filename)
+    reuse_stored_research = not has_new_cv and bool(stored_research)
+
+    if not has_new_cv and not reuse_stored_research:
         flash("Please attach the candidate's CV.")
         return redirect(url_for("index"))
 
@@ -192,37 +357,45 @@ def generate():
         # happens in practice.
         InterviewRole.get_or_create(role_title)
 
-    cv_ext = os.path.splitext(cv_file.filename)[1].lower()
-    if cv_ext not in ALLOWED_CV_EXTENSIONS:
-        flash(f"Unsupported CV format: {cv_ext}. Supported: {', '.join(ALLOWED_CV_EXTENSIONS)}")
-        return redirect(url_for("index"))
-
     run_id = uuid.uuid4().hex[:8]
-    cv_path = os.path.join(UPLOAD_DIR, f"{run_id}_cv{cv_ext}")
-    cv_file.save(cv_path)
 
-    try:
-        cv_text = extract_text_from_file(cv_path)
-    except Exception as exc:
-        flash(f"Failed to read the CV: {exc}")
-        return redirect(url_for("index"))
+    if reuse_stored_research:
+        research_text = stored_research
+        followed_links = []
+    else:
+        cv_ext = os.path.splitext(cv_file.filename)[1].lower()
+        if cv_ext not in ALLOWED_CV_EXTENSIONS:
+            flash(f"Unsupported CV format: {cv_ext}. Supported: {', '.join(ALLOWED_CV_EXTENSIONS)}")
+            return redirect(url_for("index"))
 
-    linkedin_text = linkedin_text_input
-    if linkedin_file and linkedin_file.filename:
-        li_ext = os.path.splitext(linkedin_file.filename)[1].lower()
-        if li_ext in ALLOWED_CV_EXTENSIONS:
-            li_path = os.path.join(UPLOAD_DIR, f"{run_id}_linkedin{li_ext}")
-            linkedin_file.save(li_path)
-            try:
-                linkedin_text = extract_text_from_file(li_path) or linkedin_text
-            except Exception as exc:
-                flash(f"Failed to read the LinkedIn file: {exc}")
+        cv_path = os.path.join(UPLOAD_DIR, f"{run_id}_cv{cv_ext}")
+        cv_file.save(cv_path)
 
-    if not cv_text.strip() and not linkedin_text.strip():
-        flash("Couldn't extract any text from the attached materials.")
-        return redirect(url_for("index"))
+        try:
+            cv_text = extract_text_from_file(cv_path)
+        except Exception as exc:
+            flash(f"Failed to read the CV: {exc}")
+            return redirect(url_for("index"))
 
-    research = gather_research(cv_text, linkedin_text)
+        linkedin_text = linkedin_text_input
+        if linkedin_file and linkedin_file.filename:
+            li_ext = os.path.splitext(linkedin_file.filename)[1].lower()
+            if li_ext in ALLOWED_CV_EXTENSIONS:
+                li_path = os.path.join(UPLOAD_DIR, f"{run_id}_linkedin{li_ext}")
+                linkedin_file.save(li_path)
+                try:
+                    linkedin_text = extract_text_from_file(li_path) or linkedin_text
+                except Exception as exc:
+                    flash(f"Failed to read the LinkedIn file: {exc}")
+
+        if not cv_text.strip() and not linkedin_text.strip():
+            flash("Couldn't extract any text from the attached materials.")
+            return redirect(url_for("index"))
+
+        research = gather_research(cv_text, linkedin_text)
+        research_text = research.as_prompt_text()
+        followed_links = research.linked_pages
+
     curated_groups = _collect_curated_groups(selected_question_ids)
     # Only the question_text flows into the pool offered to the LLM — the
     # explanation is interviewer-facing detail, not part of the prompt.
@@ -237,12 +410,13 @@ def generate():
     try:
         summary = generate_interview_summary(
             provider=provider,
-            research_text=research.as_prompt_text(),
+            research_text=research_text,
             candidate_name=candidate_name or None,
             role_title=role_title or None,
             duration_minutes=duration_minutes,
             curated_groups=curated_groups_for_prompt,
             prompt_id=prompt_id,
+            additional_notes=additional_notes,
         )
     except SummaryGenerationError as exc:
         flash(f"Failed to generate the summary: {exc}")
@@ -266,6 +440,10 @@ def generate():
         docx_filename=docx_filename,
         summary_json=summary.model_dump_json(),
         created_at=generated_at,
+        research_text=research_text,
+        question_ids_json=json.dumps([q.id for _, qs in curated_groups for q in qs]),
+        prompt_id=prompt_id,
+        additional_notes=additional_notes,
     )
     db.session.add(guide)
     db.session.commit()
@@ -274,10 +452,11 @@ def generate():
         "result.html",
         summary=summary,
         docx_filename=docx_filename,
-        followed_links=research.linked_pages,
+        followed_links=followed_links,
         provider_used=provider.name,
         generated_at=generated_at,
         section_minutes=_section_minutes(summary),
+        **_interview_context(guide, summary),
     )
 
 
@@ -316,7 +495,39 @@ def history_view(guide_id: int):
         generated_at=guide.created_at,
         section_minutes=_section_minutes(summary),
         guide_owner=guide.user,
+        **_interview_context(guide, summary),
     )
+
+
+@app.route("/history/<int:guide_id>/delete", methods=["POST"])
+@login_required
+def delete_guide(guide_id: int):
+    guide = _get_accessible_guide(guide_id)
+    if guide is None:
+        flash("You don't have access to this guide.")
+        return redirect(url_for("history"))
+
+    name = guide.candidate_name
+    # Files are named after the run id (interview_guide_<runid>.docx,
+    # <runid>_cv.*, <runid>_linkedin.*), so remove the generated document and
+    # the uploaded source files together with the guide.
+    match = re.fullmatch(r"interview_guide_([0-9a-f]{8})\.docx", guide.docx_filename or "")
+    if match:
+        run_id = match.group(1)
+        for directory, pattern in ((GENERATED_DIR, f"interview_guide_{run_id}.docx"),
+                                   (UPLOAD_DIR, f"{run_id}_*")):
+            for path in glob.glob(os.path.join(directory, pattern)):
+                try:
+                    os.remove(path)
+                except OSError:
+                    logging.warning("Could not remove %s", path)
+
+    db.session.delete(guide)
+    db.session.commit()
+    flash(f"Deleted the guide for {name}.")
+    if request.form.get("next") == "all_guides" and current_user.is_admin:
+        return redirect(url_for("all_guides"))
+    return redirect(url_for("history"))
 
 
 @app.route("/download/<path:filename>", methods=["GET"])
@@ -336,6 +547,21 @@ def download(filename: str):
     if guide is not None and guide.user_id != current_user.id and not current_user.is_admin:
         flash("You don't have access to this file.")
         return redirect(url_for("index"))
+
+    if guide is not None:
+        log = _owner_log(guide)
+        data = ilog.parse_data(log.data_json if log else None)
+        if ilog.has_content(data):
+            # Rebuild the report with the interview notes, summary and grades.
+            buffer = io.BytesIO()
+            build_docx(
+                InterviewSummary.model_validate_json(guide.summary_json),
+                buffer,
+                generated_at=guide.created_at,
+                log=data,
+            )
+            buffer.seek(0)
+            return send_file(buffer, as_attachment=True, download_name=safe_name)
 
     return send_file(safe_path, as_attachment=True)
 
@@ -431,6 +657,28 @@ def _migrate_question_table() -> None:
             conn.execute(text("ALTER TABLE question ADD COLUMN explanation TEXT NOT NULL DEFAULT ''"))
 
 
+def _migrate_generated_guide_clone_columns() -> None:
+    """Adds the columns that let a guide be cloned (its stored research text,
+    selected question ids and prompt id) to a generated_guide table that
+    predates them. Idempotent, and also run at import time because production
+    (gunicorn) never goes through init_db()."""
+    inspector = inspect(db.engine)
+    if "generated_guide" not in inspector.get_table_names():
+        return
+    columns = {c["name"] for c in inspector.get_columns("generated_guide")}
+    wanted = {"research_text": "TEXT", "question_ids_json": "TEXT", "prompt_id": "INTEGER", "additional_notes": "TEXT"}
+    with db.engine.begin() as conn:
+        for name, sql_type in wanted.items():
+            if name not in columns:
+                conn.execute(text(f"ALTER TABLE generated_guide ADD COLUMN {name} {sql_type}"))
+
+
+with app.app_context():
+    _migrate_role_tag_table()
+    db.create_all()
+    _migrate_generated_guide_clone_columns()
+
+
 def init_db():
     with app.app_context():
         _migrate_role_tag_table()
@@ -438,6 +686,7 @@ def init_db():
         _migrate_user_table()
         _migrate_system_prompt_scoring_rows_column()
         _migrate_question_table()
+        _migrate_generated_guide_clone_columns()
 
 
 if __name__ == "__main__":

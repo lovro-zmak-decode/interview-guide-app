@@ -454,7 +454,8 @@ button.chip:hover { border-color: var(--blue); color: var(--blue); background: v
 .guide-hero .btn-outline:hover { background: rgba(255,255,255,0.08); border-color: #fff; }
 
 .guide-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 32px; margin-top: 32px; align-items: start; }
-.toc { position: sticky; top: 24px; font-size: 13px; }
+.guide-side { position: sticky; top: 24px; max-height: calc(100vh - 48px); overflow-y: auto; }
+.toc { font-size: 13px; }
 .toc p { font-size: 11px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); margin: 0 0 10px 12px; }
 .toc a {
   display: flex; gap: 10px; align-items: baseline; padding: 6px 12px;
@@ -625,3 +626,67 @@ details.disclosure > .disclosure-body { padding: 0 18px 18px; }
 }
 
 [hidden] { display: none !important; }
+
+/* Interview mode: notes, evaluation inputs, sticky live notes */
+.pre-line { white-space: pre-line; }
+.iv-answer, .answer-note { grid-column: 1 / -1; }
+.iv-answer { display: block; margin-top: 12px; }
+.iv-answer > span { display: block; font-size: 13px; font-weight: 500; color: var(--gray-700); margin-bottom: 4px; }
+.iv-answer textarea { min-height: 120px; font-size: 14px; }
+.answer-note { margin-top: 12px; padding: 10px 12px; background: var(--blue-50); border-radius: 8px; font-size: 14px; }
+.answer-note b { color: var(--blue); font-weight: 500; font-size: 13px; }
+.answer-note p { margin: 4px 0 0; white-space: pre-line; }
+.radio { display: inline-flex; align-items: center; gap: 6px; margin-right: 16px; font-size: 14px; cursor: pointer; }
+.radio input { width: auto; margin: 0; }
+.second-round, .rec-row { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 4px; margin-top: 14px; }
+.second-round .guide-sub, .rec-row .guide-sub { margin: 0 12px 0 0; }
+.save-state { font-size: 13px; color: var(--text-muted); align-self: center; }
+.save-state.is-error { color: var(--danger-600); }
+.table select, .table input[type=text], .table textarea { min-width: 0; width: 100%; }
+.table textarea[data-evnote] { min-height: 110px; font-size: 14px; }
+.table.eval-editing .col-ideal { display: none; }
+.table.eval-editing td[data-label="Area"] { width: 30%; vertical-align: top; }
+.table.eval-editing td[data-label="Note"] { width: 60%; }
+.ideal-hint { display: block; margin-top: 6px; font-size: 12px; font-weight: 400; color: var(--text-muted); line-height: 1.4; }
+.table select[data-grade] { width: 72px; }
+.live-panel {
+  margin-top: 20px; background: var(--surface); border: 1px solid var(--border-strong);
+  border-radius: 12px; overflow: hidden; box-shadow: var(--shadow-sm);
+}
+.live-panel .live-head {
+  display: flex; justify-content: space-between; align-items: center; width: 100%;
+  padding: 10px 14px; background: var(--gray-50); border: 0; border-bottom: 1px solid var(--border);
+  font: inherit; font-weight: 500; cursor: pointer; text-align: left;
+}
+.live-panel textarea { display: block; width: 100%; border: 0; border-radius: 0; box-shadow: none; padding: 12px 14px; font-size: 14px; resize: vertical; min-height: 260px; max-height: 60vh; }
+.live-panel.is-collapsed textarea { display: none; }
+.live-panel.is-collapsed .live-head { border-bottom: 0; }
+@media print {
+  .live-panel, .iv-answer, #summary-edit, .outcome .row, .second-round button, .second-round .save-state { display: none !important; }
+}
+
+/* While interviewing, the left column is wider to fit the notes panel. */
+.guide-layout.has-live { grid-template-columns: 360px minmax(0, 1fr); }
+@media (max-width: 1000px) {
+  .guide-layout.has-live { grid-template-columns: minmax(0, 1fr); }
+  .guide-side { position: static; max-height: none; overflow: visible; }
+}
+
+/* Big, easy to hit choices for the recommendation and the second-round DA/NE. */
+.rec-row, .second-round { gap: 10px; margin-top: 18px; }
+.rec-row .guide-sub, .second-round .guide-sub { flex-basis: 100%; margin: 0 0 4px; font-size: 15px; font-weight: 500; }
+.rec-row .radio, .second-round .radio {
+  margin: 0; padding: 12px 20px; gap: 10px; background: var(--white);
+  border: 1px solid var(--border-strong); border-radius: 10px; font-size: 16px; font-weight: 500;
+}
+.rec-row .radio input, .second-round .radio input { width: 20px; height: 20px; accent-color: var(--blue); }
+.rec-row .radio:hover, .second-round .radio:hover { border-color: var(--gray-400); }
+.rec-row .radio:has(input:checked), .second-round .radio:has(input:checked) {
+  border-color: var(--blue); background: var(--blue-50); color: var(--blue);
+}
+
+.end-dialog { border: 0; border-radius: 14px; padding: 24px; max-width: 440px; width: calc(100vw - 32px); box-shadow: 0 16px 48px rgba(0, 0, 0, 0.28); }
+.end-dialog::backdrop { background: rgba(0, 0, 0, 0.4); }
+.end-dialog h3 { margin: 0 0 8px; }
+.end-dialog p { margin: 0; color: var(--gray-700); font-size: 14px; }
+.end-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 18px; }

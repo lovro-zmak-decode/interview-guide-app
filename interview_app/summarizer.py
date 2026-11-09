@@ -23,7 +23,7 @@ from pydantic import ValidationError
 from .llm_providers import LLMProvider
 from .models import SystemPrompt
 from .prompts import build_user_prompt, format_curated_groups, render_prompt_template
-from .schema import InterviewSummary, ensure_baseline_scoring_rows
+from .schema import InterviewDebrief, InterviewSummary, ensure_baseline_scoring_rows
 
 _JSON_FENCE_RE = re.compile(r"```(?:json)?\s*(.*?)```", re.DOTALL)
 
@@ -45,6 +45,7 @@ def _resolve_variables(
     role_title: str | None,
     duration_minutes: int,
     curated_groups: list[tuple[str, list[str]]] | None,
+    additional_notes: str = "",
 ) -> dict:
     # Note: there's no "schema_description" variable here on purpose — the
     # JSON schema lives as plain text directly in the prompt's content (see
@@ -54,6 +55,7 @@ def _resolve_variables(
         "role_title": role_title or "(not provided)",
         "duration_minutes": duration_minutes,
         "research_text": research_text,
+        "additional_notes": additional_notes.strip() or "(none)",
         "curated_questions_block": format_curated_groups(curated_groups or []) or "(none selected)",
     }
 
@@ -91,6 +93,7 @@ def generate_interview_summary(
     duration_minutes: int = 60,
     curated_groups: list[tuple[str, list[str]]] | None = None,
     prompt_id: int | None = None,
+    additional_notes: str = "",
 ) -> InterviewSummary:
     active = SystemPrompt.query.get(prompt_id) if prompt_id is not None else None
 
@@ -105,8 +108,17 @@ def generate_interview_summary(
             "System Prompts admin page first if none exist yet)."
         )
 
-    variables = _resolve_variables(research_text, candidate_name, role_title, duration_minutes, curated_groups)
+    variables = _resolve_variables(
+        research_text, candidate_name, role_title, duration_minutes, curated_groups, additional_notes
+    )
     system_prompt = _build_system_prompt(active, variables)
+    if additional_notes.strip() and "{additional_notes}" not in active.content:
+        # A prompt written before this variable existed would silently drop the
+        # interviewer's notes, so append them instead.
+        system_prompt += (
+            "\n\nAdditional notes from the interviewer (take these into account when "
+            "writing the guide):\n" + additional_notes.strip()
+        )
     user_prompt = build_user_prompt()
 
     last_error: Exception | None = None
@@ -131,3 +143,36 @@ def generate_interview_summary(
     raise SummaryGenerationError(
         f"Model did not return valid JSON after two attempts: {last_error}"
     )
+
+
+def generate_interview_debrief(provider: LLMProvider, variables: dict) -> InterviewDebrief:
+    """Writes the end-of-interview summary from the interviewer's notes using
+    the most recently updated prompt of type "summary". Like the guide prompt
+    there is no fallback: it fails loudly if no such prompt exists."""
+    active = (
+        SystemPrompt.query.filter_by(type="summary").order_by(SystemPrompt.updated_at.desc()).first()
+    )
+    if active is None or not active.content.strip():
+        raise SummaryGenerationError(
+            "No summary prompt found. Create a system prompt of type 'summary' on the System "
+            "Prompts page first."
+        )
+
+    system_prompt = render_prompt_template(active.content, {k: str(v) for k, v in variables.items()})
+    user_prompt = "Write the interview summary now, in the requested JSON format."
+
+    last_error: Exception | None = None
+    for attempt in range(2):
+        prompt = user_prompt
+        if attempt == 1:
+            prompt += (
+                "\n\nIMPORTANT: the previous response wasn't valid JSON. Respond with ONLY a "
+                "JSON object, no markdown code fences and no text before or after it."
+            )
+        raw = provider.generate(system_prompt, prompt)
+        try:
+            return InterviewDebrief.model_validate(json.loads(_strip_to_json(raw)))
+        except (json.JSONDecodeError, ValidationError) as exc:
+            last_error = exc
+
+    raise SummaryGenerationError(f"Model did not return valid JSON after two attempts: {last_error}")

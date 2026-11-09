@@ -48,6 +48,10 @@ PROMPT_VARIABLES = [
         "description": "Everything gathered from the CV, LinkedIn text, and any linked pages (GitHub, portfolio).",
     },
     {
+        "name": "additional_notes",
+        "description": "Free-text notes the interviewer typed on the generate form (empty if none).",
+    },
+    {
         "name": "curated_questions_block",
         "description": (
             "Optional pool of questions the interviewer curated from the Questions DB, grouped "
@@ -56,6 +60,40 @@ PROMPT_VARIABLES = [
         ),
     },
 ]
+
+# Variables for prompts of type "summary": the end-of-interview summary the
+# interviewer reviews, built from what they typed during the interview.
+SUMMARY_PROMPT_VARIABLES = [
+    {"name": "candidate_name", "description": "The candidate's name."},
+    {"name": "role_title", "description": "The interview role."},
+    {
+        "name": "candidate_profile",
+        "description": "The candidate profile and interview goals written when the guide was generated.",
+    },
+    {
+        "name": "questions_and_answers",
+        "description": (
+            "Every question in the guide, each followed by its guidance and the interviewer's "
+            "notes on how the candidate answered."
+        ),
+    },
+    {"name": "live_notes", "description": "The interviewer's free-form notes taken during the interview."},
+    {
+        "name": "evaluation",
+        "description": "The Quick evaluation table: each area with the interviewer's grade (1 to 5) and note.",
+    },
+    {
+        "name": "overall_recommendation",
+        "description": "The interviewer's overall recommendation (definitely yes to definitely not), if set.",
+    },
+]
+
+PROMPT_TYPES = ["technical", "summary"]
+
+
+def variables_for_type(prompt_type: str) -> list[dict]:
+    return SUMMARY_PROMPT_VARIABLES if prompt_type == "summary" else PROMPT_VARIABLES
+
 
 _VARIABLE_RE = re.compile(r"\{(\w+)\}")
 

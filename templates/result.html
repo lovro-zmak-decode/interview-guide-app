@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ summary.candidate_name }} · {{ summary.title }}{% endblock %}
 
-{% macro question_cards(questions, prefix="") -%}
+{% macro question_cards(questions, prefix="", key="") -%}
   <div class="q-list">
     {% for q in questions %}
       <article class="q-card">
@@ -9,12 +9,24 @@
         <p class="q-text">{{ q.question }}</p>
         {% if q.guidance %}<p class="q-guide">{{ q.guidance }}</p>{% endif %}
         {% if q.follow_up %}<p class="q-follow"><b>Follow-up</b>{{ q.follow_up }}</p>{% endif %}
+        {% if key %}
+          {% set note = iv.answers.get(key ~ ":" ~ loop.index0, "") %}
+          {% if iv_editing %}
+            <label class="iv-answer"><span>How they answered</span>
+              <textarea data-answer="{{ key }}:{{ loop.index0 }}" rows="5" placeholder="Notes on the candidate's answer">{{ note }}</textarea>
+            </label>
+          {% elif note %}
+            <div class="answer-note"><b>How they answered</b><p>{{ note }}</p></div>
+          {% endif %}
+        {% endif %}
       </article>
     {% endfor %}
   </div>
 {%- endmacro %}
 
 {% block content %}
+{% set has_notes = iv.answers or iv.live_notes.strip() or iv.evaluation %}
+{% set show_outcome = iv.summary or iv.second_round or iv.live_notes.strip() or iv_editing or (can_edit and has_notes) %}
 {% set sections = [
   ("profile", "Profile and goals", None),
   ("warmup", "Warm-up and experience", section_minutes.warmup),
@@ -36,26 +48,108 @@
     <span>~{{ section_minutes.total }} min of planned questions</span>
     <span>Generated {{ generated_at.strftime("%d %b %Y, %H:%M") }}</span>
     <span>Model: {{ {"claude": "Claude", "openai": "OpenAI"}.get(provider_used, provider_used) }}</span>
+    {% if iv_started %}<span class="badge badge-blue">Interview in progress</span>{% endif %}
     {% if guide_owner and guide_owner.id != current_user.id %}<span>By {{ guide_owner.email }}</span>{% endif %}
   </div>
   <div class="guide-actions">
     <a class="btn btn-primary" href="{{ url_for('download', filename=docx_filename) }}">{{ icon("download", 16) }}Download .docx</a>
     <button type="button" class="btn btn-outline" onclick="window.print()">Print</button>
+    {% if can_edit %}
+      {% if iv_started %}
+        <button type="button" class="btn btn-dark" id="end-interview">End interview</button>
+        <button type="button" class="btn btn-outline" id="save-now">Save now</button>
+        <span class="save-state" data-save-state aria-live="polite">Saved</span>
+      {% else %}
+        <button type="button" class="btn btn-outline" id="start-interview">Start interview</button>
+      {% endif %}
+    {% endif %}
+    {% if guide_id %}<a class="btn btn-outline" href="{{ url_for('clone_guide', guide_id=guide_id) }}" title="Open the form prefilled with this guide's inputs">{{ icon("plus", 16) }}Regenerate with changes</a>{% endif %}
     <a class="btn btn-outline" href="{{ url_for('index') }}">{{ icon("plus", 16) }}New guide</a>
   </div>
 </header>
 
-<div class="guide-layout">
+<div class="guide-layout{{ ' has-live' if iv_editing }}">
+  <div class="guide-side">
+  {% if not iv_editing %}
   <nav class="toc" aria-label="Guide sections">
     <p>Sections</p>
+    {% if show_outcome %}<a href="#outcome" data-toc="outcome"><span>Interview outcome</span></a>{% endif %}
     {% for id, label, mins in sections %}
       <a href="#{{ id }}" data-toc="{{ id }}"><span>{{ label }}</span>{% if mins %}<span class="toc-min">{{ mins }}′</span>{% endif %}</a>
     {% endfor %}
     {% if summary.curated_question_groups %}<a href="#bank" data-toc="bank"><span>From the question bank</span></a>{% endif %}
     {% if followed_links %}<a href="#links" data-toc="links"><span>Links checked</span></a>{% endif %}
   </nav>
+  {% endif %}
+  {% if iv_editing %}
+  <aside class="live-panel" id="live-panel" aria-label="Interview notes">
+    <button type="button" class="live-head" id="live-toggle" aria-expanded="true">
+      <span>Interview notes</span>
+      <span class="save-state" data-save-state aria-live="polite">Saved</span>
+    </button>
+    <textarea data-live rows="12" placeholder="Notes during the interview. They stay visible while you scroll.">{{ iv.live_notes }}</textarea>
+  </aside>
+  {% endif %}
+  </div>
 
   <div>
+    {% if show_outcome %}
+    <section class="guide-section" id="outcome">
+      <div class="section-title"><h2>Interview outcome</h2>
+        {% if iv.summary %}<span class="badge {{ 'badge-success' if iv.summary.reviewed }}">{{ "Reviewed" if iv.summary.reviewed else "Draft for review" }}</span>{% endif %}
+      </div>
+      <div class="card card-pad stack outcome">
+        {% if iv.summary %}
+          <div id="summary-view">
+            <p class="guide-sub">Summary</p>
+            <p class="prose pre-line">{{ iv.summary.summary }}</p>
+            <p class="guide-sub">Prijedlozi za dodatna pitanja na 2. krugu, napomene i sl.</p>
+            <p class="prose pre-line">{{ iv.summary.second_round_suggestions }}</p>
+          </div>
+          {% if can_edit %}
+            <div id="summary-edit" hidden>
+              <label class="field"><span class="label">Summary</span>
+                <textarea id="summary-text" rows="9">{{ iv.summary.summary }}</textarea></label>
+              <label class="field"><span class="label">Prijedlozi za dodatna pitanja na 2. krugu, napomene i sl.</span>
+                <textarea id="suggestions-text" rows="6">{{ iv.summary.second_round_suggestions }}</textarea></label>
+            </div>
+            <div class="row">
+              <button type="button" class="btn btn-outline btn-sm" id="summary-edit-btn">Edit</button>
+              <button type="button" class="btn btn-primary btn-sm" id="summary-save-btn" hidden>Save changes</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="summary-cancel-btn" hidden>Cancel</button>
+              <button type="button" class="btn btn-outline btn-sm" id="summary-review-btn" data-reviewed="{{ 1 if iv.summary.reviewed else 0 }}">{{ "Mark as draft" if iv.summary.reviewed else "Mark as reviewed" }}</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="summary-regen-btn" data-has-summary="1">Regenerate</button>
+            </div>
+          {% endif %}
+        {% elif iv_editing %}
+          <p class="muted">The summary is written for you to review once you end the interview.</p>
+        {% elif can_edit and has_notes %}
+          <p class="muted">No summary yet. It is written from your notes and grades, for you to review.</p>
+          <div class="row"><button type="button" class="btn btn-outline btn-sm" id="summary-regen-btn">Generate summary</button></div>
+        {% endif %}
+
+        {% if can_edit and (iv_editing or iv.summary) %}
+          <div class="second-round">
+            <span class="guide-sub">Preporuka za drugi krug:</span>
+            <label class="radio"><input type="radio" name="second_round" value="DA" {{ "checked" if iv.second_round == "DA" }}> DA</label>
+            <label class="radio"><input type="radio" name="second_round" value="NE" {{ "checked" if iv.second_round == "NE" }}> NE</label>
+            <button type="button" class="btn btn-ghost btn-sm" id="second-round-clear">Clear</button>
+            {% if not iv_editing %}<span class="save-state" data-save-state aria-live="polite">Saved</span>{% endif %}
+          </div>
+        {% elif iv.second_round %}
+          <p><strong>Preporuka za drugi krug:</strong> {{ iv.second_round }}</p>
+        {% endif %}
+
+        {% if iv.live_notes.strip() and not iv_editing %}
+          <div>
+            <p class="guide-sub">Interview notes</p>
+            <p class="prose pre-line">{{ iv.live_notes }}</p>
+          </div>
+        {% endif %}
+      </div>
+    </section>
+    {% endif %}
+
     <section class="guide-section" id="profile">
       <div class="section-title"><span class="step">1</span><h2>Candidate profile and interview goals</h2></div>
       <div class="card card-pad stack">
@@ -71,29 +165,29 @@
 
     <section class="guide-section" id="warmup">
       <div class="section-title"><span class="step">2</span><h2>Warm-up and experience</h2><span class="time">{{ icon("clock", 14) }}~{{ section_minutes.warmup }} min</span></div>
-      {{ question_cards(summary.warmup_questions) }}
+      {{ question_cards(summary.warmup_questions, "", "warmup") }}
     </section>
 
     <section class="guide-section" id="technical">
       <div class="section-title"><span class="step">3</span><h2>Technical depth</h2><span class="time">{{ icon("clock", 14) }}~{{ section_minutes.technical }} min</span></div>
       {% if summary.quick_check_questions %}
         <p class="guide-sub">Quick fundamentals check</p>
-        {{ question_cards(summary.quick_check_questions, "Q") }}
+        {{ question_cards(summary.quick_check_questions, "Q", "quick") }}
       {% endif %}
       {% if summary.deep_dive_questions %}
         <p class="guide-sub">Deep-dive questions</p>
-        {{ question_cards(summary.deep_dive_questions, "D") }}
+        {{ question_cards(summary.deep_dive_questions, "D", "deep") }}
       {% endif %}
     </section>
 
     <section class="guide-section" id="thinking">
       <div class="section-title"><span class="step">4</span><h2>How they think</h2><span class="time">{{ icon("clock", 14) }}~{{ section_minutes.thinking }} min</span></div>
-      {{ question_cards(summary.thinking_questions) }}
+      {{ question_cards(summary.thinking_questions, "", "thinking") }}
     </section>
 
     <section class="guide-section" id="teamwork">
       <div class="section-title"><span class="step">5</span><h2>Teamwork and working style</h2><span class="time">{{ icon("clock", 14) }}~{{ section_minutes.teamwork }} min</span></div>
-      {{ question_cards(summary.teamwork_questions) }}
+      {{ question_cards(summary.teamwork_questions, "", "teamwork") }}
     </section>
 
     <section class="guide-section" id="wrapup">
@@ -106,22 +200,45 @@
     <section class="guide-section" id="evaluation">
       <div class="section-title"><span class="step">7</span><h2>Quick evaluation</h2><span class="time">Right after the interview</span></div>
       <div class="table-wrap">
-        <table class="table">
-          <thead><tr><th>Area</th><th>What 5/5 looks like</th><th>Grade</th><th>Note</th></tr></thead>
+        <table class="table{{ ' eval-editing' if iv_editing }}">
+          <thead><tr><th>Area</th><th class="col-ideal">What 5/5 looks like</th><th>Grade</th><th>Note</th></tr></thead>
           <tbody>
             {% for row in summary.scoring_table %}
+              {% set ev = iv.evaluation.get(loop.index0 | string, {}) %}
               <tr>
-                <td class="cell-strong" data-label="Area">{{ row.area }}</td>
-                <td data-label="5/5">{{ row.ideal_signs }}</td>
-                <td data-label="Grade"></td>
-                <td data-label="Note"></td>
+                <td class="cell-strong" data-label="Area">{{ row.area }}
+                  {% if iv_editing %}<span class="ideal-hint">5/5: {{ row.ideal_signs }}</span>{% endif %}</td>
+                <td class="col-ideal" data-label="5/5">{{ row.ideal_signs }}</td>
+                <td data-label="Grade">
+                  {% if iv_editing %}
+                    <select data-grade="{{ loop.index0 }}" aria-label="Grade for {{ row.area }}">
+                      <option value="">-</option>
+                      {% for g in range(1, 6) %}<option value="{{ g }}" {{ "selected" if ev.get("grade") == g | string }}>{{ g }}</option>{% endfor %}
+                    </select>
+                  {% elif ev.get("grade") %}{{ ev.grade }}/5{% endif %}
+                </td>
+                <td data-label="Note">
+                  {% if iv_editing %}<textarea data-evnote="{{ loop.index0 }}" rows="4" aria-label="Note for {{ row.area }}">{{ ev.get('note', '') }}</textarea>
+                  {% else %}{{ ev.get("note", "") }}{% endif %}
+                </td>
               </tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
-      <p class="hint">Overall recommendation: <strong>{{ summary.overall_recommendation_scale }}</strong>.
-        Fill in Grade and Note in the downloaded .docx.</p>
+      {% if iv_editing %}
+        <div class="rec-row">
+          <span class="guide-sub">Overall recommendation</span>
+          {% for opt in rec_options %}
+            <label class="radio"><input type="radio" name="recommendation" value="{{ opt }}" {{ "checked" if iv.recommendation == opt }}> {{ opt }}</label>
+          {% endfor %}
+        </div>
+      {% elif iv.recommendation %}
+        <p class="hint">Overall recommendation: <strong>{{ iv.recommendation }}</strong></p>
+      {% else %}
+        <p class="hint">Overall recommendation: <strong>{{ summary.overall_recommendation_scale }}</strong>.
+          {% if can_edit %}Start the interview to fill in grades and notes here.{% else %}Grades and notes are filled in during the interview.{% endif %}</p>
+      {% endif %}
     </section>
 
     {% if summary.curated_question_groups %}
@@ -153,6 +270,19 @@
     {% endif %}
   </div>
 </div>
+
+{% if iv_editing %}
+<dialog id="end-dialog" class="end-dialog" aria-labelledby="end-dialog-title">
+  <h3 id="end-dialog-title">End the interview?</h3>
+  <p>By default a summary is written from your notes and grades, for you to review. You can also end without it
+    and generate it later from the Interview outcome section.</p>
+  <div class="end-actions">
+    <button type="button" class="btn btn-primary" data-end="summary" autofocus>End and write summary</button>
+    <button type="button" class="btn btn-outline" data-end="skip">End without summary</button>
+    <button type="button" class="btn btn-ghost" data-end="cancel">Cancel</button>
+  </div>
+</dialog>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}
@@ -173,4 +303,191 @@
     document.querySelectorAll('.guide-section').forEach(function (s) { obs.observe(s); });
   })();
 </script>
+{% if can_edit %}
+<script>
+  (function () {
+    var LOG_URL = {{ url_for('save_interview_log', guide_id=guide_id) | tojson }};
+    var SUMMARY_URL = {{ url_for('generate_guide_debrief', guide_id=guide_id) | tojson }};
+    var DELAY = {{ autosave_seconds }} * 1000;
+    var DRAFT_KEY = 'ivdraft:{{ guide_id }}:{{ current_user.id }}';
+
+    var pending = emptyPending(), inflight = null, timer = null;
+
+    function emptyPending() { return { answers: {}, evaluation: {}, live_notes: null, recommendation: null, second_round: null }; }
+    function isEmpty(p) {
+      return !Object.keys(p.answers).length && !Object.keys(p.evaluation).length &&
+        p.live_notes === null && p.recommendation === null && p.second_round === null;
+    }
+    function mergePending(older, newer) {
+      var out = emptyPending();
+      Object.assign(out.answers, older.answers, newer.answers);
+      [older.evaluation, newer.evaluation].forEach(function (ev) {
+        Object.keys(ev).forEach(function (i) { out.evaluation[i] = Object.assign({}, out.evaluation[i], ev[i]); });
+      });
+      ['live_notes', 'recommendation', 'second_round'].forEach(function (k) {
+        out[k] = newer[k] !== null ? newer[k] : older[k];
+      });
+      return out;
+    }
+    function toPayload(p) {
+      var body = {};
+      if (Object.keys(p.answers).length) body.answers = p.answers;
+      if (Object.keys(p.evaluation).length) body.evaluation = p.evaluation;
+      ['live_notes', 'recommendation', 'second_round'].forEach(function (k) { if (p[k] !== null) body[k] = p[k]; });
+      return body;
+    }
+    function setState(text, isError) {
+      document.querySelectorAll('[data-save-state]').forEach(function (el) {
+        el.textContent = text; el.classList.toggle('is-error', !!isError);
+      });
+    }
+    function saveDraft() {
+      try {
+        var all = inflight ? mergePending(inflight, pending) : pending;
+        if (isEmpty(all)) localStorage.removeItem(DRAFT_KEY); else localStorage.setItem(DRAFT_KEY, JSON.stringify(all));
+      } catch (e) {}
+    }
+    function post(url, body, keepalive) {
+      return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}), keepalive: !!keepalive })
+        .then(function (r) {
+          return r.json().catch(function () { return {}; }).then(function (j) {
+            if (!r.ok) throw new Error(j.error || ('Request failed (' + r.status + ')'));
+            return j;
+          });
+        });
+    }
+    function touch() {
+      saveDraft(); setState('Unsaved changes');
+      if (!timer) timer = setTimeout(function () { flush(); }, DELAY);
+    }
+    // Resolves true when everything pending is saved, false when saving failed.
+    function flush(keepalive) {
+      clearTimeout(timer); timer = null;
+      if (inflight) return Promise.resolve(false);
+      if (isEmpty(pending)) return Promise.resolve(true);
+      inflight = pending; pending = emptyPending();
+      setState('Saving…');
+      return post(LOG_URL, toPayload(inflight), keepalive).then(function () {
+        inflight = null; saveDraft();
+        if (isEmpty(pending)) { setState('Saved'); } else { setState('Unsaved changes'); timer = setTimeout(function () { flush(); }, DELAY); }
+        return true;
+      }).catch(function (err) {
+        pending = mergePending(inflight, pending); inflight = null; saveDraft();
+        setState('Not saved: ' + err.message, true);
+        timer = setTimeout(function () { flush(); }, DELAY);
+        return false;
+      });
+    }
+    function evEntry(i) { return pending.evaluation[i] || (pending.evaluation[i] = {}); }
+
+    document.addEventListener('input', function (e) {
+      var t = e.target;
+      if (t.dataset.answer) { pending.answers[t.dataset.answer] = t.value; touch(); }
+      else if (t.hasAttribute('data-live')) { pending.live_notes = t.value; touch(); }
+      else if (t.dataset.evnote !== undefined) { evEntry(t.dataset.evnote).note = t.value; touch(); }
+    });
+    document.addEventListener('change', function (e) {
+      var t = e.target;
+      if (t.dataset.grade !== undefined) { evEntry(t.dataset.grade).grade = t.value; touch(); }
+      else if (t.name === 'recommendation') { pending.recommendation = t.value; touch(); }
+      else if (t.name === 'second_round') { pending.second_round = t.value; touch(); }
+    });
+    document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') flush(true); });
+    window.addEventListener('pagehide', function () { flush(true); });
+
+    function byId(id) { return document.getElementById(id); }
+    function on(id, fn) { var el = byId(id); if (el) el.addEventListener('click', fn); }
+    function fail(btn, label) {
+      return function (err) { alert(err.message); if (btn) { btn.disabled = false; if (label) btn.textContent = label; } };
+    }
+
+    on('save-now', function () { flush(); });
+    on('live-toggle', function () {
+      var panel = byId('live-panel'), collapsed = panel.classList.toggle('is-collapsed');
+      byId('live-toggle').setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    });
+    on('second-round-clear', function () {
+      document.querySelectorAll('input[name=second_round]').forEach(function (r) { r.checked = false; });
+      pending.second_round = ''; touch();
+    });
+
+    on('start-interview', function () {
+      var btn = byId('start-interview'); btn.disabled = true;
+      post(LOG_URL, { started: true }).then(function () { location.reload(); }).catch(fail(btn));
+    });
+    var endDialog = byId('end-dialog');
+    on('end-interview', function () { endDialog.showModal(); });
+    if (endDialog) {
+      endDialog.querySelectorAll('[data-end]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          endDialog.close();
+          if (b.dataset.end !== 'cancel') endInterview(b.dataset.end === 'summary');
+        });
+      });
+    }
+    function endInterview(withSummary) {
+      var btn = byId('end-interview'); btn.disabled = true; btn.textContent = withSummary ? 'Writing summary…' : 'Ending…';
+      flush().then(function (ok) {
+        if (!ok) { alert('Your latest notes could not be saved, so the interview was not ended. Try again.'); btn.disabled = false; btn.textContent = 'End interview'; return; }
+        return post(LOG_URL, { started: false }).then(function () {
+          if (!withSummary) return;
+          return post(SUMMARY_URL).catch(function (err) {
+            alert('The interview has ended, but the summary could not be written: ' + err.message + '\nYou can retry with "Generate summary".');
+          });
+        }).then(function () { location.reload(); });
+      }).catch(fail(btn, 'End interview'));
+    }
+
+    on('summary-regen-btn', function () {
+      var btn = byId('summary-regen-btn');
+      if (btn.dataset.hasSummary && !confirm('Replace the current summary with a new one? Your edits to it will be lost.')) return;
+      btn.disabled = true; btn.textContent = 'Writing…';
+      post(SUMMARY_URL).then(function () { location.reload(); }).catch(fail(btn, 'Regenerate'));
+    });
+    on('summary-edit-btn', function () { toggleSummaryEdit(true); });
+    on('summary-cancel-btn', function () { toggleSummaryEdit(false); });
+    function toggleSummaryEdit(editing) {
+      byId('summary-edit').hidden = !editing; byId('summary-view').hidden = editing;
+      byId('summary-edit-btn').hidden = editing;
+      byId('summary-save-btn').hidden = !editing; byId('summary-cancel-btn').hidden = !editing;
+    }
+    on('summary-save-btn', function () {
+      var btn = byId('summary-save-btn'); btn.disabled = true;
+      post(LOG_URL, { summary_edit: { summary: byId('summary-text').value, second_round_suggestions: byId('suggestions-text').value } })
+        .then(function () { location.reload(); }).catch(fail(btn));
+    });
+    on('summary-review-btn', function () {
+      var btn = byId('summary-review-btn'); btn.disabled = true;
+      post(LOG_URL, { summary_edit: { reviewed: btn.dataset.reviewed !== '1' } })
+        .then(function () { location.reload(); }).catch(fail(btn));
+    });
+
+    // Bring back text that was typed but never reached the server (crash, lost connection).
+    try {
+      var raw = localStorage.getItem(DRAFT_KEY);
+      if (raw) {
+        var d = JSON.parse(raw);
+        Object.keys(d.answers || {}).forEach(function (k) {
+          var el = document.querySelector('[data-answer="' + k + '"]');
+          if (el) { el.value = d.answers[k]; pending.answers[k] = d.answers[k]; }
+        });
+        Object.keys(d.evaluation || {}).forEach(function (i) {
+          var g = document.querySelector('[data-grade="' + i + '"]'), n = document.querySelector('[data-evnote="' + i + '"]');
+          if (d.evaluation[i].grade !== undefined && g) { g.value = d.evaluation[i].grade; evEntry(i).grade = d.evaluation[i].grade; }
+          if (d.evaluation[i].note !== undefined && n) { n.value = d.evaluation[i].note; evEntry(i).note = d.evaluation[i].note; }
+        });
+        var live = document.querySelector('[data-live]');
+        if (d.live_notes !== null && d.live_notes !== undefined && live) { live.value = d.live_notes; pending.live_notes = d.live_notes; }
+        ['recommendation', 'second_round'].forEach(function (name) {
+          if (d[name] === null || d[name] === undefined) return;
+          document.querySelectorAll('input[name=' + name + ']').forEach(function (r) { r.checked = r.value === d[name]; });
+          pending[name] = d[name];
+        });
+        if (!isEmpty(pending)) { touch(); setState('Restored unsaved text from this browser'); }
+        else localStorage.removeItem(DRAFT_KEY);
+      }
+    } catch (e) {}
+  })();
+</script>
+{% endif %}
 {% endblock %}

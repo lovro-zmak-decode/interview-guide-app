@@ -11,6 +11,15 @@
 </header>
 
 <form action="{{ url_for('generate') }}" method="post" enctype="multipart/form-data" id="generate-form">
+  {% if prefill %}
+    <input type="hidden" name="clone_from" value="{{ prefill.guide_id }}">
+    <p class="hint" style="margin-bottom:16px">
+      Regenerating from the guide for <strong>{{ prefill.candidate_name }}</strong>.
+      {% if prefill.has_research %}The candidate's CV, LinkedIn and linked pages are reused, so you only need to change the settings you want.
+      Attach a new CV below only if you want to replace the material.
+      {% else %}This older guide didn't keep its source material, so attach the CV again.{% endif %}
+    </p>
+  {% endif %}
   <div class="split">
     <div>
       <section class="card">
@@ -19,12 +28,12 @@
           <div class="field-row">
             <label class="field">
               <span class="label">Candidate name</span>
-              <input type="text" name="candidate_name" placeholder="e.g. Jane Doe" autocomplete="off">
+              <input type="text" name="candidate_name" placeholder="e.g. Jane Doe" autocomplete="off" value="{{ prefill.candidate_name if prefill else '' }}">
             </label>
             <label class="field">
               <span class="label">Interview role</span>
               <input type="text" name="role_title" list="role-options" autocomplete="off"
-                     placeholder="e.g. Backend Developer (Java / Quarkus)">
+                     placeholder="e.g. Backend Developer (Java / Quarkus)" value="{{ prefill.role_title if prefill else '' }}">
               <datalist id="role-options">
                 {% for tag in interview_roles %}<option value="{{ tag.name }}">{% endfor %}
               </datalist>
@@ -34,9 +43,9 @@
             {% if current_user.is_admin %}<a href="{{ url_for('roles.list_roles') }}">Manage roles</a>{% endif %}</p>
 
           <div class="field" style="margin-top:20px">
-            <span class="label">CV <span class="req" aria-hidden="true">*</span></span>
+            <span class="label">CV {% if prefill and prefill.has_research %}<span class="badge">Optional, already stored</span>{% else %}<span class="req" aria-hidden="true">*</span>{% endif %}</span>
             <div class="dropzone" data-dropzone>
-              <input type="file" name="cv_file" accept=".pdf,.docx,.txt" required aria-label="Candidate CV (PDF, DOCX or TXT)">
+              <input type="file" name="cv_file" accept=".pdf,.docx,.txt" {% if not (prefill and prefill.has_research) %}required{% endif %} aria-label="Candidate CV (PDF, DOCX or TXT)">
               <span class="dropzone-icon">{{ icon("upload", 20) }}</span>
               <span class="dropzone-text">
                 <span class="dropzone-title" data-default="Drop the CV here or click to browse">Drop the CV here or click to browse</span>
@@ -78,8 +87,8 @@
       <section class="card">
         <div class="card-head">
           <span class="step">3</span><h2>Questions from the bank</h2><span class="badge">Optional</span>
-          <p class="hint">The model uses these as a pool and picks the ones that fit this candidate and the
-            time available. It keeps the wording as written. Every selected question is also listed at the end of the guide.</p>
+          <p class="hint">The model uses these as a pool of topics and picks the ones that fit this candidate and the
+            time available. It rephrases them to fit the flow of the conversation, based on the candidate's own experience. Every selected question is also listed, as written, at the end of the guide.</p>
         </div>
         <div class="card-body">
           {% if question_groups %}
@@ -99,7 +108,7 @@
                     </div>
                     {% for q in group.questions %}
                       <label class="check">
-                        <input type="checkbox" name="question_ids" value="{{ q.id }}" data-group="{{ group.id }}">
+                        <input type="checkbox" name="question_ids" value="{{ q.id }}" data-group="{{ group.id }}" {% if prefill and q.id in prefill.question_ids %}checked{% endif %}>
                         <span>{{ q.question_text }}</span>
                       </label>
                     {% else %}
@@ -121,6 +130,17 @@
           {% endif %}
         </div>
       </section>
+
+      <section class="card">
+        <div class="card-head">
+          <span class="step">4</span><h2>Additional notes</h2><span class="badge">Optional</span>
+        </div>
+        <div class="card-body">
+          <textarea name="additional_notes" rows="5" aria-label="Additional notes for the guide"
+                    placeholder="Anything the model should take into account, e.g. topics to focus on, things to avoid, context from a recruiter call">{{ prefill.additional_notes if prefill else '' }}</textarea>
+          <p class="hint">Sent to the model together with the CV and the other material.</p>
+        </div>
+      </section>
     </div>
 
     <aside class="split-aside">
@@ -130,7 +150,7 @@
           <label class="field">
             <span class="label">Duration</span>
             <span class="input-suffix">
-              <input type="number" name="duration_minutes" value="40" min="15" max="180" step="5">
+              <input type="number" name="duration_minutes" value="{{ prefill.duration_minutes if prefill else 60 }}" min="15" max="180" step="5">
               <span>min</span>
             </span>
           </label>
@@ -138,7 +158,7 @@
             <span class="label">System prompt</span>
             <select name="prompt_id" {% if not system_prompts %}disabled{% endif %}>
               {% for sp in system_prompts %}
-                <option value="{{ sp.id }}" {% if loop.first %}selected{% endif %}>{{ sp.name }}</option>
+                <option value="{{ sp.id }}" {% if (prefill and prefill.prompt_id and sp.id == prefill.prompt_id) or (not (prefill and prefill.prompt_id) and loop.first) %}selected{% endif %}>{{ sp.name }}</option>
               {% else %}
                 <option>No prompts yet</option>
               {% endfor %}
@@ -154,7 +174,7 @@
             <span class="label">Model provider</span>
             <select name="provider">
               {% for p in providers %}
-                <option value="{{ p }}" {% if p == default_provider %}selected{% endif %}>{{ {"claude": "Claude (Anthropic)", "openai": "OpenAI"}.get(p, p) }}</option>
+                <option value="{{ p }}" {% if p == ((prefill and prefill.provider) or default_provider) %}selected{% endif %}>{{ {"claude": "Claude (Anthropic)", "openai": "OpenAI"}.get(p, p) }}</option>
               {% endfor %}
             </select>
           </label>
@@ -163,7 +183,7 @@
 
       <section class="card card-pad">
         <ul class="summary-list" aria-live="polite">
-          <li data-check="cv"><span class="dot">{{ icon("check", 12) }}</span>CV attached</li>
+          <li data-check="cv" {% if prefill and prefill.has_research %}data-stored="1"{% endif %}><span class="dot">{{ icon("check", 12) }}</span>CV attached</li>
           <li data-check="li"><span class="dot">{{ icon("check", 12) }}</span><span>LinkedIn added</span></li>
           <li data-check="qs"><span class="dot">{{ icon("check", 12) }}</span><span data-qs-label>No bank questions selected</span></li>
         </ul>
@@ -209,7 +229,7 @@
   // Live checklist + per-group selected counts.
   var form = document.getElementById('generate-form');
   function refresh() {
-    var cv = form.querySelector('input[name=cv_file]').files.length > 0;
+    var cv = form.querySelector('input[name=cv_file]').files.length > 0 || !!form.querySelector('[data-check=cv][data-stored]');
     var liText = form.querySelector('textarea[name=linkedin_text]').value.trim().length > 0;
     var liFile = form.querySelector('input[name=linkedin_file]').files.length > 0;
     var total = 0;

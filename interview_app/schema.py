@@ -17,7 +17,7 @@ with pydantic and render into the final .docx.
 from __future__ import annotations
 
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class InterviewQuestion(BaseModel):
@@ -33,6 +33,23 @@ class InterviewQuestion(BaseModel):
     follow_up: Optional[str] = Field(
         default=None, description="Optional follow-up question that digs deeper into the topic."
     )
+
+
+class InterviewDebrief(BaseModel):
+    """What the "summary" prompt returns after an interview: written for the
+    interviewer to review and edit. Deliberately has no second-round verdict;
+    the interviewer marks that themselves."""
+
+    summary: str
+    second_round_suggestions: str = ""
+
+    @field_validator("summary", "second_round_suggestions", mode="before")
+    @classmethod
+    def _join_lists(cls, value):
+        # Models sometimes return bullet points as a JSON list instead of a string.
+        if isinstance(value, list):
+            return "\n".join(f"- {item}" for item in value)
+        return value
 
 
 class ScoringRow(BaseModel):
