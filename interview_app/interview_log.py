@@ -146,6 +146,17 @@ def merge_update(data: dict, payload: dict, summary: InterviewSummary) -> dict:
     return data
 
 
+def shareable(data: dict) -> dict:
+    """The part of someone's notes other interviewers may see: the answers and
+    the live notes. The end-of-interview scoring (grades and their notes, the
+    overall recommendation, the second-round choice and the summary) stays
+    private to the person who wrote it."""
+    shared = empty_data()
+    shared["answers"] = data["answers"]
+    shared["live_notes"] = data["live_notes"]
+    return shared
+
+
 def has_content(data: dict) -> bool:
     return bool(
         data["answers"]

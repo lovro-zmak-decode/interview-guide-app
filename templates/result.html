@@ -18,6 +18,7 @@
           {% elif note %}
             <div class="answer-note"><b>How they answered</b><p>{{ note }}</p></div>
           {% endif %}
+          <div class="others-notes" data-others-answer="{{ key }}:{{ loop.index0 }}"></div>
         {% endif %}
       </article>
     {% endfor %}
@@ -49,6 +50,7 @@
     <span>Generated {{ generated_at.strftime("%d %b %Y, %H:%M") }}</span>
     <span>Model: {{ {"claude": "Claude", "openai": "OpenAI"}.get(provider_used, provider_used) }}</span>
     {% if iv_started %}<span class="badge badge-blue">Interview in progress</span>{% endif %}
+    <span class="badge" id="presence" hidden></span>
     {% if guide_owner and guide_owner.id != current_user.id %}<span>By {{ guide_owner.email }}</span>{% endif %}
   </div>
   <div class="guide-actions">
@@ -90,6 +92,7 @@
     <textarea data-live rows="12" placeholder="Notes during the interview. They stay visible while you scroll.">{{ iv.live_notes }}</textarea>
   </aside>
   {% endif %}
+  <div id="others-live" class="others-live" hidden></div>
   </div>
 
   <div>
@@ -461,6 +464,50 @@
       post(LOG_URL, { summary_edit: { reviewed: btn.dataset.reviewed !== '1' } })
         .then(function () { location.reload(); }).catch(fail(btn));
     });
+
+    // What the other interviewers have written: shown read-only, refreshed by polling.
+    var OTHERS_URL = {{ url_for('interview_others', guide_id=guide_id) | tojson }};
+    var POLL_MS = {{ poll_seconds }} * 1000;
+    function el(tag, cls, text) {
+      var e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (text !== undefined) e.textContent = text;
+      return e;
+    }
+    function noteBlock(label, text) {
+      var d = el('div', 'answer-note is-other');
+      d.appendChild(el('b', '', label));
+      if (text) d.appendChild(el('p', '', text));
+      return d;
+    }
+    function renderOthers(list) {
+      document.querySelectorAll('[data-others-answer]').forEach(function (c) { c.replaceChildren(); });
+      var live = byId('others-live'), presence = byId('presence');
+      live.replaceChildren();
+      var active = [];
+      list.forEach(function (p) {
+        var d = p.data || {};
+        if (p.started) active.push(p.name);
+        Object.keys(d.answers || {}).forEach(function (k) {
+          var c = document.querySelector('[data-others-answer="' + k + '"]');
+          if (c) c.appendChild(noteBlock(p.name, d.answers[k]));
+        });
+        if ((d.live_notes || '').trim()) live.appendChild(noteBlock(p.name + ' · interview notes', d.live_notes));
+      });
+      live.hidden = !live.children.length;
+      presence.textContent = active.length ? 'Also interviewing: ' + active.join(', ') : '';
+      presence.hidden = !active.length;
+    }
+    function pollOthers() {
+      if (document.visibilityState !== 'visible') return;
+      fetch(OTHERS_URL, { headers: { Accept: 'application/json' } })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) { if (j) renderOthers(j.others); })
+        .catch(function () {});
+    }
+    renderOthers({{ others | tojson }});
+    setInterval(pollOthers, POLL_MS);
+    document.addEventListener('visibilitychange', pollOthers);
 
     // Bring back text that was typed but never reached the server (crash, lost connection).
     try {

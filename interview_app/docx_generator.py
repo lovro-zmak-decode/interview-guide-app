@@ -46,7 +46,7 @@ def _add_section_heading(doc: Document, text: str, minutes: int | None = None, l
 
 
 def _add_question_block(
-    doc: Document, label: str, item: InterviewQuestion, note: str | None = None
+    doc: Document, label: str, item: InterviewQuestion, notes: list[tuple[str | None, str]] | None = None
 ) -> None:
     q_para = doc.add_paragraph()
     q_run = q_para.add_run(f"{label}. {item.question}")
@@ -61,15 +61,15 @@ def _add_question_block(
         fu_run.italic = True
         fu_para.paragraph_format.left_indent = Pt(18)
 
-    if note:
+    for name, note in notes or []:
         note_para = doc.add_paragraph()
-        note_run = note_para.add_run("Notes on the answer: ")
+        note_run = note_para.add_run(f"Notes on the answer ({name}): " if name else "Notes on the answer: ")
         note_run.bold = True
         note_para.add_run(note)
         note_para.paragraph_format.left_indent = Pt(18)
 
 
-def _add_interview_outcome(doc: Document, log: dict) -> None:
+def _add_interview_outcome(doc: Document, log: dict, name: str | None = None) -> None:
     """Summary, second-round choice and suggestions, placed at the very top of
     a report that has interview notes. The labels are Croatian because the
     summary itself is written in the language of the interview."""
@@ -77,7 +77,7 @@ def _add_interview_outcome(doc: Document, log: dict) -> None:
     if not (summary or log.get("second_round")):
         return
 
-    heading = "Sažetak razgovora"
+    heading = "Sažetak razgovora" + (f" ({name})" if name else "")
     if summary and not summary.get("reviewed"):
         heading += " (nacrt, nije pregledano)"
     doc.add_heading(heading, level=1)
@@ -104,17 +104,27 @@ def build_docx(
     summary: InterviewSummary,
     output_path,
     generated_at: datetime | None = None,
-    log: dict | None = None,
+    logs: list[dict] | None = None,
 ) -> str:
-    """`output_path` may be a path or a file-like object. `log` is the owner's
-    interview notes (see interview_app.interview_log); when given, the report
-    also contains the summary, per-question notes, live notes and the filled-in
-    evaluation."""
+    """`output_path` may be a path or a file-like object. `logs` holds each
+    interviewer's notes (see interview_app.interview_log) plus a "name"; when
+    given, the report also contains their summaries, per-question notes, live
+    notes and the filled-in evaluation. Names are only printed when more than
+    one person took notes."""
     doc = Document()
     generated_at = generated_at or datetime.now()
-    log = log or {}
-    answers = log.get("answers", {})
-    evaluation = log.get("evaluation", {})
+    logs = logs or []
+    multi = len(logs) > 1
+    scorers = [l for l in logs if l.get("evaluation") or l.get("recommendation") or l.get("summary") or l.get("second_round")]
+
+    def who(log: dict) -> str | None:
+        return log.get("name") if multi else None
+
+    def who_scoring(log: dict) -> str | None:
+        return log.get("name") if len(scorers) > 1 else None
+
+    def notes_for(key: str) -> list[tuple[str | None, str]]:
+        return [(who(l), l["answers"][key]) for l in logs if l.get("answers", {}).get(key)]
 
     title = doc.add_heading(summary.title, level=0)
     title.alignment = WD_ALIGN_PARAGRAPH.LEFT
@@ -129,7 +139,8 @@ def build_docx(
         f"~{estimate_total_minutes(summary)} min."
     )
 
-    _add_interview_outcome(doc, log)
+    for log in scorers:
+        _add_interview_outcome(doc, log, who_scoring(log))
 
     # 1. Candidate profile and interview goals
     doc.add_heading("1. Candidate profile and interview goals", level=1)
@@ -147,7 +158,7 @@ def build_docx(
     # 2. Warm-up and experience
     _add_section_heading(doc, "2. Warm-up and experience", estimate_section_minutes(len(summary.warmup_questions)))
     for i, item in enumerate(summary.warmup_questions):
-        _add_question_block(doc, f"P{p_counter}", item, answers.get(f"warmup:{i}"))
+        _add_question_block(doc, f"P{p_counter}", item, notes_for(f"warmup:{i}"))
         p_counter += 1
 
     # 3. Technical depth
@@ -156,24 +167,24 @@ def build_docx(
     if summary.quick_check_questions:
         doc.add_heading("Quick fundamentals check", level=2)
         for idx, item in enumerate(summary.quick_check_questions, start=1):
-            _add_question_block(doc, f"Q{idx}", item, answers.get(f"quick:{idx - 1}"))
+            _add_question_block(doc, f"Q{idx}", item, notes_for(f"quick:{idx - 1}"))
 
     if summary.deep_dive_questions:
         doc.add_heading("Deep-dive questions", level=2)
         for i, item in enumerate(summary.deep_dive_questions):
-            _add_question_block(doc, f"P{p_counter}", item, answers.get(f"deep:{i}"))
+            _add_question_block(doc, f"P{p_counter}", item, notes_for(f"deep:{i}"))
             p_counter += 1
 
     # 4. How they think
     _add_section_heading(doc, "4. How they think", estimate_section_minutes(len(summary.thinking_questions)))
     for i, item in enumerate(summary.thinking_questions):
-        _add_question_block(doc, f"P{p_counter}", item, answers.get(f"thinking:{i}"))
+        _add_question_block(doc, f"P{p_counter}", item, notes_for(f"thinking:{i}"))
         p_counter += 1
 
     # 5. Teamwork and working style
     _add_section_heading(doc, "5. Teamwork and working style", estimate_section_minutes(len(summary.teamwork_questions)))
     for i, item in enumerate(summary.teamwork_questions):
-        _add_question_block(doc, f"P{p_counter}", item, answers.get(f"teamwork:{i}"))
+        _add_question_block(doc, f"P{p_counter}", item, notes_for(f"teamwork:{i}"))
         p_counter += 1
 
     # 6. Candidate questions and wrap-up
@@ -184,17 +195,21 @@ def build_docx(
     for note in summary.closing_notes:
         doc.add_paragraph(note, style="List Bullet")
 
-    if (log.get("live_notes") or "").strip():
-        doc.add_heading("Interview notes", level=1)
-        for line in log["live_notes"].strip().split("\n"):
-            doc.add_paragraph(line)
+    for log in logs:
+        if (log.get("live_notes") or "").strip():
+            doc.add_heading("Interview notes" + (f" ({who(log)})" if who(log) else ""), level=1)
+            for line in log["live_notes"].strip().split("\n"):
+                doc.add_paragraph(line)
 
     # 7. Quick evaluation
     doc.add_heading("7. Quick evaluation", level=1)
     doc.add_paragraph("Do immediately after the interview.")
-    doc.add_paragraph(
-        f"Overall recommendation: {log.get('recommendation') or summary.overall_recommendation_scale}"
-    )
+    recommendations = [(who_scoring(l), l["recommendation"]) for l in logs if l.get("recommendation")]
+    if recommendations:
+        for name, value in recommendations:
+            doc.add_paragraph(f"Overall recommendation{f' ({name})' if name else ''}: {value}")
+    else:
+        doc.add_paragraph(f"Overall recommendation: {summary.overall_recommendation_scale}")
 
     if summary.scoring_table:
         table = doc.add_table(rows=1, cols=4)
@@ -205,12 +220,19 @@ def build_docx(
         hdr[2].text = "Grade"
         hdr[3].text = "Note"
         for idx, row in enumerate(summary.scoring_table):
-            entry = evaluation.get(str(idx), {})
+            grades, notes = [], []
+            for log in logs:
+                entry = log.get("evaluation", {}).get(str(idx), {})
+                prefix = f"{who_scoring(log)}: " if who_scoring(log) else ""
+                if entry.get("grade"):
+                    grades.append(f"{prefix}{entry['grade']}/5")
+                if entry.get("note"):
+                    notes.append(f"{prefix}{entry['note']}")
             cells = table.add_row().cells
             cells[0].text = row.area
             cells[1].text = row.ideal_signs
-            cells[2].text = f"{entry['grade']}/5" if entry.get("grade") else ""
-            cells[3].text = entry.get("note", "")
+            cells[2].text = "\n".join(grades)
+            cells[3].text = "\n".join(notes)
 
     # Reference appendix — the interviewer's full original Questions DB
     # selection, unnumbered and placed at the very end so it doesn't compete

@@ -60,6 +60,8 @@ ALLOWED_CV_EXTENSIONS = {".pdf", ".docx", ".txt"}
 
 # While an interview is running, edits are sent to the server at most this often.
 INTERVIEW_AUTOSAVE_SECONDS = 30
+# How often an open report asks the server for what the other interviewers wrote.
+INTERVIEW_POLL_SECONDS = 5
 
 # Create app using factory function
 from interview_app import create_app
@@ -151,37 +153,64 @@ def clone_guide(guide_id: int):
     return _render_index(prefill)
 
 
-def _owner_log(guide: GeneratedGuide) -> InterviewLog | None:
-    """The guide owner's notes. For now only the owner writes notes, so this is
-    what everyone who can open the guide sees (read-only unless it is theirs)."""
-    return InterviewLog.for_guide_and_user(guide.id, guide.user_id)
+def _display_name(user: User) -> str:
+    return user.email.split("@")[0]
+
+
+def _participant_logs(guide: GeneratedGuide, full: bool = False) -> list[dict]:
+    """Everyone's notes on this guide that have any content or an interview in
+    progress, oldest first, each as {"user_id", "name", "started", "data"}.
+    Unless `full` is set, only the current user's own entry is complete; for
+    everyone else the scoring is removed (see interview_log.shareable)."""
+    logs = InterviewLog.query.filter_by(guide_id=guide.id).order_by(InterviewLog.id).all()
+    out = []
+    for log in logs:
+        data = ilog.parse_data(log.data_json)
+        if log.user_id != current_user.id and not full:
+            data = ilog.shareable(data)
+        if log.started or ilog.has_content(data):
+            out.append({"user_id": log.user_id, "name": _display_name(log.user), "started": log.started, "data": data})
+    return out
 
 
 def _interview_context(guide: GeneratedGuide, summary: InterviewSummary) -> dict:
-    """Template variables for result.html: the notes to show, and whether the
-    current user may edit them (only the guide's owner)."""
-    log = _owner_log(guide)
-    can_edit = guide.user_id == current_user.id
+    """Template variables for result.html. Whoever can open a guide (its owner
+    or an admin) takes part in the interview with their own notes; everyone
+    else's notes are shown read-only next to them."""
+    log = InterviewLog.for_guide_and_user(guide.id, current_user.id)
     started = bool(log and log.started)
     return {
         "guide_id": guide.id,
-        "can_edit": can_edit,
+        "can_edit": True,
         "iv": ilog.parse_data(log.data_json if log else None),
         "iv_started": started,
-        "iv_editing": can_edit and started,
+        "iv_editing": started,
         "rec_options": ilog.recommendation_options(summary),
         "autosave_seconds": INTERVIEW_AUTOSAVE_SECONDS,
+        "poll_seconds": INTERVIEW_POLL_SECONDS,
+        "others": [p for p in _participant_logs(guide) if p["user_id"] != current_user.id],
     }
 
 
-def _owned_guide_or_error(guide_id: int):
-    """(guide, None) if the current user owns the guide, else (None, json error response)."""
+def _participant_guide_or_error(guide_id: int):
+    """(guide, None) if the current user may take part in this guide's interview
+    (its owner or an admin), else (None, json error response)."""
     guide = db.session.get(GeneratedGuide, guide_id)
     if guide is None:
         return None, (jsonify(error="Guide not found."), 404)
-    if guide.user_id != current_user.id:
-        return None, (jsonify(error="Only the guide's owner can edit its notes."), 403)
+    if guide.user_id != current_user.id and not current_user.is_admin:
+        return None, (jsonify(error="You don't have access to this guide."), 403)
     return guide, None
+
+
+@app.route("/history/<int:guide_id>/others", methods=["GET"])
+@login_required
+def interview_others(guide_id: int):
+    """What the other interviewers have written so far, polled by the open report."""
+    guide, error = _participant_guide_or_error(guide_id)
+    if error:
+        return error
+    return jsonify(others=[p for p in _participant_logs(guide) if p["user_id"] != current_user.id])
 
 
 def _get_or_create_log(guide: GeneratedGuide) -> InterviewLog:
@@ -195,7 +224,7 @@ def _get_or_create_log(guide: GeneratedGuide) -> InterviewLog:
 @app.route("/history/<int:guide_id>/log", methods=["POST"])
 @login_required
 def save_interview_log(guide_id: int):
-    guide, error = _owned_guide_or_error(guide_id)
+    guide, error = _participant_guide_or_error(guide_id)
     if error:
         return error
     if request.content_length and request.content_length > ilog.MAX_BODY_BYTES:
@@ -220,9 +249,9 @@ def save_interview_log(guide_id: int):
 @app.route("/history/<int:guide_id>/summary", methods=["POST"])
 @login_required
 def generate_guide_debrief(guide_id: int):
-    """Writes (or rewrites) the AI summary from the owner's notes, for the
-    owner to review. Replaces any earlier summary and marks it unreviewed."""
-    guide, error = _owned_guide_or_error(guide_id)
+    """Writes (or rewrites) the AI summary from the current user's own notes,
+    for them to review. Replaces their earlier summary and marks it unreviewed."""
+    guide, error = _participant_guide_or_error(guide_id)
     if error:
         return error
 
@@ -549,16 +578,20 @@ def download(filename: str):
         return redirect(url_for("index"))
 
     if guide is not None:
-        log = _owner_log(guide)
-        data = ilog.parse_data(log.data_json if log else None)
-        if ilog.has_content(data):
-            # Rebuild the report with the interview notes, summary and grades.
+        logs = [
+            {"name": p["name"], **p["data"]}
+            for p in _participant_logs(guide, full=True)
+            if ilog.has_content(p["data"])
+        ]
+        if logs:
+            # The Word report is the complete record: everyone's notes and everyone's
+            # scoring, labelled by name. On the page the scoring stays private.
             buffer = io.BytesIO()
             build_docx(
                 InterviewSummary.model_validate_json(guide.summary_json),
                 buffer,
                 generated_at=guide.created_at,
-                log=data,
+                logs=logs,
             )
             buffer.seek(0)
             return send_file(buffer, as_attachment=True, download_name=safe_name)
