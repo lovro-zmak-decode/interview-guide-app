@@ -64,6 +64,7 @@
     <span>Model: {{ {"claude": "Claude", "openai": "OpenAI"}.get(provider_used, provider_used) }}</span>
     {% if iv_started %}<span class="badge badge-blue">Interview in progress</span>{% endif %}
     <span class="badge" id="presence" hidden></span>
+    {% for d in documents %}<span><a class="meta-link" href="{{ d.url }}">{{ "CV" if d.kind == "cv" else "LinkedIn" }}: {{ d.filename }}</a></span>{% endfor %}
     {% if guide_owner and guide_owner.id != current_user.id %}<span>By {{ guide_owner.email }}</span>{% endif %}
   </div>
   <div class="guide-actions">
@@ -351,6 +352,7 @@
     var LOG_URL = {{ url_for('save_interview_log', guide_id=guide_id) | tojson }};
     var SUMMARY_URL = {{ url_for('generate_guide_debrief', guide_id=guide_id) | tojson }};
     var DELAY = {{ autosave_seconds }} * 1000;
+    var EDITING = {{ 'true' if iv_editing else 'false' }};
     var DRAFT_KEY = 'ivdraft:{{ guide_id }}:{{ current_user.id }}';
 
     var pending = emptyPending(), inflight = null, timer = null;
@@ -433,7 +435,7 @@
       var t = e.target;
       if (t.dataset.grade !== undefined) { evEntry(t.dataset.grade).grade = t.value; touch(); }
       else if (t.name === 'recommendation') { pending.recommendation = t.value; touch(); }
-      else if (t.name === 'second_round') { pending.second_round = t.value; touch(); }
+      else if (t.name === 'second_round') { pending.second_round = t.value; touch(); if (!EDITING) flush(); }
     });
     document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') flush(true); });
     window.addEventListener('pagehide', function () { flush(true); });
@@ -451,7 +453,7 @@
     });
     on('second-round-clear', function () {
       document.querySelectorAll('input[name=second_round]').forEach(function (r) { r.checked = false; });
-      pending.second_round = ''; touch();
+      pending.second_round = ''; touch(); if (!EDITING) flush();
     });
 
     on('start-interview', function () {
@@ -572,10 +574,12 @@
         if (parts.length || d.summary) {
           var box = noteBlock(p.name, parts.join('  |  '));
           if (d.summary) {
-            var det = el('details');
-            det.appendChild(el('summary', '', d.summary.reviewed ? 'Summary (reviewed)' : 'Summary (draft)'));
-            det.appendChild(el('p', 'pre-line', d.summary.summary + (d.summary.second_round_suggestions ? '\n\n' + d.summary.second_round_suggestions : '')));
-            box.appendChild(det);
+            box.appendChild(el('p', 'others-label', d.summary.reviewed ? 'Summary (reviewed)' : 'Summary (draft)'));
+            box.appendChild(el('p', 'pre-line', d.summary.summary || ''));
+            if (d.summary.second_round_suggestions) {
+              box.appendChild(el('p', 'others-label', 'Prijedlozi za dodatna pitanja na 2. krugu, napomene i sl.'));
+              box.appendChild(el('p', 'pre-line', d.summary.second_round_suggestions));
+            }
           }
           dec.appendChild(box); hasDecisions = true;
         }

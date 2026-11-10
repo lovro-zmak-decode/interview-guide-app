@@ -17,11 +17,10 @@ Then open http://127.0.0.1:5001
 
 from __future__ import annotations
 
-import glob
 import io
 import json
 import os
-import re
+import tempfile
 import uuid
 import logging
 from collections import OrderedDict
@@ -35,11 +34,12 @@ from sqlalchemy import inspect, text
 from interview_app.auth import auth_bp, admin_required
 from interview_app.extractors import extract_text_from_file, gather_research
 from interview_app.llm_providers import get_provider, available_providers, LLMConfigError
-from interview_app.models import GeneratedGuide, InterviewLog, InterviewRole, Question, QuestionGroup, SystemPrompt, User, db
+from interview_app.models import GeneratedGuide, GuideDocument, InterviewLog, InterviewRole, Question, QuestionGroup, SystemPrompt, User, db
 from interview_app.question_bank import qb_bp
 from interview_app.roles import roles_bp
 from interview_app.shared_questions import shared_qb_bp
 from interview_app.system_prompts import system_prompts_bp
+from interview_app.storage import get_storage
 from interview_app.summarizer import generate_interview_debrief, generate_interview_summary, SummaryGenerationError
 from interview_app import interview_log as ilog
 from interview_app.docx_generator import build_docx
@@ -57,6 +57,11 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 
 ALLOWED_CV_EXTENSIONS = {".pdf", ".docx", ".txt"}
+DOCUMENT_CONTENT_TYPES = {
+    ".pdf": "application/pdf",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".txt": "text/plain",
+}
 
 # While an interview is running, edits are sent to the server at most this often.
 INTERVIEW_AUTOSAVE_SECONDS = 30
@@ -66,8 +71,6 @@ INTERVIEW_POLL_SECONDS = 5
 # Create app using factory function
 from interview_app import create_app
 app = create_app()
-UPLOAD_DIR = app.config["UPLOAD_DIR"]
-GENERATED_DIR = app.config["GENERATED_DIR"]
 
 
 app.register_blueprint(auth_bp)
@@ -80,11 +83,56 @@ app.register_blueprint(system_prompts_bp)
 @app.before_request
 def require_setup_or_login():
     # Allow the bootstrap page and static assets even with zero users / not logged in.
-    if request.endpoint in ("auth.setup", "static"):
+    if request.endpoint in ("auth.setup", "static", "healthz"):
         return None
     if User.query.count() == 0:
         return redirect(url_for("auth.setup"))
     return None
+
+
+@app.route("/healthz", methods=["GET"])
+def healthz():
+    """For the hosting platform's health check: no login, no redirects."""
+    try:
+        db.session.execute(text("SELECT 1"))
+    except Exception:
+        logging.exception("Health check failed")
+        return "database unavailable", 503
+    return "ok"
+
+
+def _extract_text_from_bytes(data: bytes, ext: str) -> str:
+    with tempfile.NamedTemporaryFile(suffix=ext) as tmp:
+        tmp.write(data)
+        tmp.flush()
+        return extract_text_from_file(tmp.name)
+
+
+def _store_guide_documents(guide: GeneratedGuide, uploads: list[tuple[str, str, bytes]]) -> None:
+    """Keep the uploaded source files (kind, original filename, bytes) with the
+    guide. Adds to the session; the caller commits."""
+    storage = get_storage()
+    for kind, filename, data in uploads:
+        ext = os.path.splitext(filename)[1].lower()
+        key = f"guides/{guide.id}/{kind}{ext}"
+        content_type = DOCUMENT_CONTENT_TYPES.get(ext, "application/octet-stream")
+        storage.save(key, data, content_type)
+        db.session.add(GuideDocument(
+            guide_id=guide.id, kind=kind, filename=os.path.basename(filename)[:255] or f"{kind}{ext}",
+            content_type=content_type, storage_key=key, size=len(data),
+        ))
+
+
+def _copy_guide_documents(source: GeneratedGuide, target: GeneratedGuide) -> None:
+    """A regenerated guide gets its own copy of the stored source files, so
+    deleting either guide never breaks the other."""
+    storage = get_storage()
+    uploads = []
+    for doc in source.documents:
+        data = storage.load(doc.storage_key)
+        if data is not None:
+            uploads.append((doc.kind, doc.filename, data))
+    _store_guide_documents(target, uploads)
 
 
 def _get_accessible_guide(guide_id_raw) -> GeneratedGuide | None:
@@ -148,6 +196,10 @@ def clone_guide(guide_id: int):
         "prompt_id": guide.prompt_id,
         "question_ids": set(question_ids),
         "has_research": bool(guide.research_text),
+        "documents": [
+            {"kind": d.kind, "filename": d.filename, "url": url_for("guide_file", guide_id=guide.id, kind=d.kind)}
+            for d in guide.documents
+        ],
         "additional_notes": guide.additional_notes or "",
     }
     return _render_index(prefill)
@@ -192,6 +244,10 @@ def _interview_context(guide: GeneratedGuide, summary: InterviewSummary) -> dict
         "rec_options": ilog.recommendation_options(summary),
         "autosave_seconds": INTERVIEW_AUTOSAVE_SECONDS,
         "poll_seconds": INTERVIEW_POLL_SECONDS,
+        "documents": [
+            {"kind": d.kind, "filename": d.filename, "url": url_for("guide_file", guide_id=guide.id, kind=d.kind)}
+            for d in guide.documents
+        ],
         "others": [p for p in _participant_logs(guide) if p["user_id"] != current_user.id],
     }
 
@@ -391,6 +447,7 @@ def generate():
         InterviewRole.get_or_create(role_title)
 
     run_id = uuid.uuid4().hex[:8]
+    uploaded_files: list[tuple[str, str, bytes]] = []
 
     if reuse_stored_research:
         research_text = stored_research
@@ -401,23 +458,22 @@ def generate():
             flash(f"Unsupported CV format: {cv_ext}. Supported: {', '.join(ALLOWED_CV_EXTENSIONS)}")
             return redirect(url_for("index"))
 
-        cv_path = os.path.join(UPLOAD_DIR, f"{run_id}_cv{cv_ext}")
-        cv_file.save(cv_path)
-
+        cv_data = cv_file.read()
         try:
-            cv_text = extract_text_from_file(cv_path)
+            cv_text = _extract_text_from_bytes(cv_data, cv_ext)
         except Exception as exc:
             flash(f"Failed to read the CV: {exc}")
             return redirect(url_for("index"))
+        uploaded_files.append(("cv", cv_file.filename, cv_data))
 
         linkedin_text = linkedin_text_input
         if linkedin_file and linkedin_file.filename:
             li_ext = os.path.splitext(linkedin_file.filename)[1].lower()
             if li_ext in ALLOWED_CV_EXTENSIONS:
-                li_path = os.path.join(UPLOAD_DIR, f"{run_id}_linkedin{li_ext}")
-                linkedin_file.save(li_path)
+                li_data = linkedin_file.read()
+                uploaded_files.append(("linkedin", linkedin_file.filename, li_data))
                 try:
-                    linkedin_text = extract_text_from_file(li_path) or linkedin_text
+                    linkedin_text = _extract_text_from_bytes(li_data, li_ext) or linkedin_text
                 except Exception as exc:
                     flash(f"Failed to read the LinkedIn file: {exc}")
 
@@ -462,8 +518,6 @@ def generate():
 
     generated_at = datetime.now()
     docx_filename = f"interview_guide_{run_id}.docx"
-    docx_path = os.path.join(GENERATED_DIR, docx_filename)
-    build_docx(summary, docx_path, generated_at=generated_at)
 
     guide = GeneratedGuide(
         user_id=current_user.id,
@@ -479,6 +533,11 @@ def generate():
         additional_notes=additional_notes,
     )
     db.session.add(guide)
+    db.session.flush()
+    if reuse_stored_research and source_guide is not None:
+        _copy_guide_documents(source_guide, guide)
+    else:
+        _store_guide_documents(guide, uploaded_files)
     db.session.commit()
 
     return render_template(
@@ -541,20 +600,9 @@ def delete_guide(guide_id: int):
         return redirect(url_for("history"))
 
     name = guide.candidate_name
-    # Files are named after the run id (interview_guide_<runid>.docx,
-    # <runid>_cv.*, <runid>_linkedin.*), so remove the generated document and
-    # the uploaded source files together with the guide.
-    match = re.fullmatch(r"interview_guide_([0-9a-f]{8})\.docx", guide.docx_filename or "")
-    if match:
-        run_id = match.group(1)
-        for directory, pattern in ((GENERATED_DIR, f"interview_guide_{run_id}.docx"),
-                                   (UPLOAD_DIR, f"{run_id}_*")):
-            for path in glob.glob(os.path.join(directory, pattern)):
-                try:
-                    os.remove(path)
-                except OSError:
-                    logging.warning("Could not remove %s", path)
-
+    storage = get_storage()
+    for doc in guide.documents:
+        storage.delete(doc.storage_key)
     db.session.delete(guide)
     db.session.commit()
     flash(f"Deleted the guide for {name}.")
@@ -566,41 +614,52 @@ def delete_guide(guide_id: int):
 @app.route("/download/<path:filename>", methods=["GET"])
 @login_required
 def download(filename: str):
+    """The Word report, rebuilt from the stored guide (plus everyone's interview
+    notes, if any) on every download, so nothing depends on files on disk."""
     safe_name = os.path.basename(filename)
-    safe_path = os.path.join(GENERATED_DIR, safe_name)
-    if not os.path.isfile(safe_path):
+    guide = GeneratedGuide.query.filter_by(docx_filename=safe_name).first()
+    if guide is None:
         flash("The file doesn't exist or has expired.")
         return redirect(url_for("index"))
-
-    # If this file is tracked as someone's generated guide, only its owner (or
-    # an admin, for the "All guides" page) may download it. Untracked files
-    # (shouldn't normally happen) are allowed through, since there's nothing
-    # to check ownership against.
-    guide = GeneratedGuide.query.filter_by(docx_filename=safe_name).first()
-    if guide is not None and guide.user_id != current_user.id and not current_user.is_admin:
+    if guide.user_id != current_user.id and not current_user.is_admin:
         flash("You don't have access to this file.")
         return redirect(url_for("index"))
 
-    if guide is not None:
-        logs = [
-            {"name": p["name"], **p["data"]}
-            for p in _participant_logs(guide, full=True)
-            if ilog.has_content(p["data"])
-        ]
-        if logs:
-            # The Word report is the complete record: everyone's notes and everyone's
-            # scoring, labelled by name.
-            buffer = io.BytesIO()
-            build_docx(
-                InterviewSummary.model_validate_json(guide.summary_json),
-                buffer,
-                generated_at=guide.created_at,
-                logs=logs,
-            )
-            buffer.seek(0)
-            return send_file(buffer, as_attachment=True, download_name=safe_name)
+    # The report is the complete record: everyone's notes and everyone's
+    # scoring, labelled by name.
+    logs = [
+        {"name": p["name"], **p["data"]}
+        for p in _participant_logs(guide, full=True)
+        if ilog.has_content(p["data"])
+    ]
+    buffer = io.BytesIO()
+    build_docx(
+        InterviewSummary.model_validate_json(guide.summary_json),
+        buffer,
+        generated_at=guide.created_at,
+        logs=logs or None,
+    )
+    buffer.seek(0)
+    return send_file(buffer, as_attachment=True, download_name=safe_name)
 
-    return send_file(safe_path, as_attachment=True)
+
+@app.route("/history/<int:guide_id>/files/<kind>", methods=["GET"])
+@login_required
+def guide_file(guide_id: int, kind: str):
+    """One of the source files (CV or LinkedIn export) the guide was made from."""
+    guide = _get_accessible_guide(guide_id)
+    if guide is None:
+        flash("You don't have access to this guide.")
+        return redirect(url_for("history"))
+    doc = next((d for d in guide.documents if d.kind == kind), None)
+    data = get_storage().load(doc.storage_key) if doc else None
+    if data is None:
+        flash("That file is not stored for this guide.")
+        return redirect(url_for("history_view", guide_id=guide.id))
+    return send_file(
+        io.BytesIO(data), mimetype=doc.content_type or "application/octet-stream",
+        as_attachment=True, download_name=doc.filename,
+    )
 
 
 def _migrate_role_tag_table() -> None:
