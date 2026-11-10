@@ -140,22 +140,17 @@ def generate_interview_summary(
             last_error = exc
             continue
 
-    raise SummaryGenerationError(
-        f"Model did not return valid JSON after two attempts: {last_error}"
-    )
+    raise SummaryGenerationError(f"Model did not return valid JSON after two attempts: {last_error}")
 
 
 def generate_interview_debrief(provider: LLMProvider, variables: dict) -> InterviewDebrief:
     """Writes the end-of-interview summary from the interviewer's notes using
     the most recently updated prompt of type "summary". Like the guide prompt
     there is no fallback: it fails loudly if no such prompt exists."""
-    active = (
-        SystemPrompt.query.filter_by(type="summary").order_by(SystemPrompt.updated_at.desc()).first()
-    )
+    active = SystemPrompt.query.filter_by(type="summary").order_by(SystemPrompt.updated_at.desc()).first()
     if active is None or not active.content.strip():
         raise SummaryGenerationError(
-            "No summary prompt found. Create a system prompt of type 'summary' on the System "
-            "Prompts page first."
+            "No summary prompt found. Create a system prompt of type 'summary' on the System Prompts page first."
         )
 
     system_prompt = render_prompt_template(active.content, {k: str(v) for k, v in variables.items()})

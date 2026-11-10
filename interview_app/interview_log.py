@@ -65,11 +65,7 @@ def recommendation_options(summary: InterviewSummary) -> list[str]:
 
 
 def question_keys(summary: InterviewSummary) -> set[str]:
-    return {
-        f"{key}:{i}"
-        for key, attr, _ in QUESTION_SECTIONS
-        for i in range(len(getattr(summary, attr)))
-    }
+    return {f"{key}:{i}" for key, attr, _ in QUESTION_SECTIONS for i in range(len(getattr(summary, attr)))}
 
 
 def _text(value, field: str) -> str:
@@ -196,9 +192,7 @@ def store_summary(data: dict, summary_text: str, suggestions: str) -> None:
     }
 
 
-def questions_and_answers_text(
-    summary: InterviewSummary, answers: dict, custom_questions: list | None = None
-) -> str:
+def questions_and_answers_text(summary: InterviewSummary, answers: dict, custom_questions: list | None = None) -> str:
     blocks = []
     for key, attr, label in QUESTION_SECTIONS:
         questions = getattr(summary, attr)

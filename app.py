@@ -128,10 +128,16 @@ def _store_guide_documents(guide: GeneratedGuide, uploads: list[tuple[str, str, 
         key = f"guides/{guide.id}/{kind}{ext}"
         content_type = DOCUMENT_CONTENT_TYPES.get(ext, "application/octet-stream")
         storage.save(key, data, content_type)
-        db.session.add(GuideDocument(
-            guide_id=guide.id, kind=kind, filename=os.path.basename(filename)[:255] or f"{kind}{ext}",
-            content_type=content_type, storage_key=key, size=len(data),
-        ))
+        db.session.add(
+            GuideDocument(
+                guide_id=guide.id,
+                kind=kind,
+                filename=os.path.basename(filename)[:255] or f"{kind}{ext}",
+                content_type=content_type,
+                storage_key=key,
+                size=len(data),
+            )
+        )
 
 
 def _copy_guide_documents(source: GeneratedGuide, target: GeneratedGuide) -> None:
@@ -162,9 +168,7 @@ def _render_index(prefill: dict | None = None):
     # Most recently updated first — the top one is also what generation falls
     # back to if no prompt is explicitly picked, so it doubles as the sane
     # default selection in the dropdown.
-    system_prompts = (
-        SystemPrompt.query.filter_by(type="technical").order_by(SystemPrompt.updated_at.desc()).all()
-    )
+    system_prompts = SystemPrompt.query.filter_by(type="technical").order_by(SystemPrompt.updated_at.desc()).all()
     return render_template(
         "index.html",
         providers=available_providers(),
@@ -386,9 +390,7 @@ def _collect_curated_groups(question_ids: list[int]) -> list[tuple[str, list[Que
 
     visible_group_ids = {g.id for g in QuestionGroup.visible_to(current_user).all()}
     questions = (
-        Question.query.filter(Question.id.in_(question_ids))
-        .order_by(Question.group_id, Question.position)
-        .all()
+        Question.query.filter(Question.id.in_(question_ids)).order_by(Question.group_id, Question.position).all()
     )
 
     grouped: OrderedDict[str, list[Question]] = OrderedDict()
@@ -639,9 +641,7 @@ def download(filename: str):
     # The report is the complete record: everyone's notes and everyone's
     # scoring, labelled by name.
     logs = [
-        {"name": p["name"], **p["data"]}
-        for p in _participant_logs(guide, full=True)
-        if ilog.has_content(p["data"])
+        {"name": p["name"], **p["data"]} for p in _participant_logs(guide, full=True) if ilog.has_content(p["data"])
     ]
     buffer = io.BytesIO()
     build_docx(
@@ -668,8 +668,10 @@ def guide_file(guide_id: int, kind: str):
         flash("That file is not stored for this guide.")
         return redirect(url_for("history_view", guide_id=guide.id))
     return send_file(
-        io.BytesIO(data), mimetype=doc.content_type or "application/octet-stream",
-        as_attachment=True, download_name=doc.filename,
+        io.BytesIO(data),
+        mimetype=doc.content_type or "application/octet-stream",
+        as_attachment=True,
+        download_name=doc.filename,
     )
 
 
@@ -700,8 +702,9 @@ def _migrate_user_table() -> None:
         return  # already on the new schema
 
     with db.engine.begin() as conn:
-        conn.execute(text(
-            """
+        conn.execute(
+            text(
+                """
             CREATE TABLE user_migrated (
                 id INTEGER PRIMARY KEY,
                 email VARCHAR(255) UNIQUE NOT NULL,
@@ -710,10 +713,9 @@ def _migrate_user_table() -> None:
                 created_at DATETIME
             )
             """
-        ))
-        rows = conn.execute(text(
-            "SELECT id, username, password_hash, is_admin, created_at FROM user"
-        )).fetchall()
+            )
+        )
+        rows = conn.execute(text("SELECT id, username, password_hash, is_admin, created_at FROM user")).fetchall()
         for row in rows:
             email = "lovro.zmak@decode.agency" if row.username == "lovrozmak" else row.username
             role = "superadmin" if row.is_admin else "user"

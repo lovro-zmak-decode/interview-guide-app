@@ -64,8 +64,7 @@ def import_docx():
 
     if not parsed_groups:
         flash(
-            "Couldn't find any group/question in the file. "
-            "Check the format (Heading 2 = group, Heading 3 = question)."
+            "Couldn't find any group/question in the file. Check the format (Heading 2 = group, Heading 3 = question)."
         )
         return redirect(url_for("questions.list_groups"))
 
@@ -78,9 +77,7 @@ def import_docx():
             position=max_position + i,
         )
         for j, pq in enumerate(parsed.questions):
-            group.questions.append(
-                Question(question_text=pq.question_text, explanation=pq.explanation, position=j)
-            )
+            group.questions.append(Question(question_text=pq.question_text, explanation=pq.explanation, position=j))
         db.session.add(group)
 
     db.session.commit()
@@ -179,9 +176,7 @@ def add_question(group_id: int):
         flash("Question text can't be empty.")
         return redirect(url_for("questions.group_detail", group_id=group.id))
 
-    max_position = db.session.query(db.func.max(Question.position)).filter(
-        Question.group_id == group.id
-    ).scalar() or 0
+    max_position = db.session.query(db.func.max(Question.position)).filter(Question.group_id == group.id).scalar() or 0
     db.session.add(
         Question(group_id=group.id, question_text=question_text, explanation=explanation, position=max_position + 1)
     )

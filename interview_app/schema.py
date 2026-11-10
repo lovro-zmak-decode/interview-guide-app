@@ -173,9 +173,7 @@ def _normalize_area_label(area: str) -> str:
     return area.split("(")[0].strip().lower()
 
 
-def ensure_baseline_scoring_rows(
-    rows: list[ScoringRow], baseline_rows: list[dict]
-) -> list[ScoringRow]:
+def ensure_baseline_scoring_rows(rows: list[ScoringRow], baseline_rows: list[dict]) -> list[ScoringRow]:
     """Appends any row from `baseline_rows` (already rendered — e.g. the
     active SystemPrompt's configured rows with {role_title} etc. filled in)
     that the model's own scoring_table doesn't already cover. Rows the model

@@ -42,9 +42,7 @@ class User(db.Model, UserMixin):
     role = db.Column(db.String(20), nullable=False, default="user")
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
 
-    question_groups = db.relationship(
-        "QuestionGroup", backref="owner", cascade="all, delete-orphan"
-    )
+    question_groups = db.relationship("QuestionGroup", backref="owner", cascade="all, delete-orphan")
 
     def set_password(self, password: str) -> None:
         self.password_hash = generate_password_hash(password, method="pbkdf2:sha256")
@@ -107,9 +105,7 @@ class QuestionGroup(db.Model):
 
     @staticmethod
     def shared():
-        return QuestionGroup.query.filter_by(visibility="shared").order_by(
-            QuestionGroup.position, QuestionGroup.id
-        )
+        return QuestionGroup.query.filter_by(visibility="shared").order_by(QuestionGroup.position, QuestionGroup.id)
 
 
 class Question(db.Model):
@@ -158,9 +154,7 @@ class GeneratedGuide(db.Model):
 
     @staticmethod
     def list_for(user: User):
-        return GeneratedGuide.query.filter_by(user_id=user.id).order_by(
-            GeneratedGuide.created_at.desc()
-        )
+        return GeneratedGuide.query.filter_by(user_id=user.id).order_by(GeneratedGuide.created_at.desc())
 
     @staticmethod
     def list_all():

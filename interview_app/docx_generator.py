@@ -192,9 +192,7 @@ def build_docx(
 
     # 6. Candidate questions and wrap-up
     _add_section_heading(doc, "6. Candidate questions and wrap-up", WRAP_UP_MINUTES)
-    doc.add_paragraph(
-        "Leave time for their questions. Also check on practical things:"
-    )
+    doc.add_paragraph("Leave time for their questions. Also check on practical things:")
     for note in summary.closing_notes:
         doc.add_paragraph(note, style="List Bullet")
 
