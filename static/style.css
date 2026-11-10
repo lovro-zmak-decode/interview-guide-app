@@ -697,3 +697,14 @@ details.disclosure > .disclosure-body { padding: 0 18px 18px; }
 .answer-note.is-other { background: var(--gray-50); border: 1px solid var(--border); margin-top: 0; }
 .answer-note.is-other b { color: var(--gray-700); }
 .others-live { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
+.answer-note.is-other details { margin-top: 8px; font-size: 13px; }
+.answer-note.is-other summary { cursor: pointer; color: var(--blue); }
+.table .others-notes { margin-top: 8px; }
+
+/* The interviewer's own extra questions. */
+.own-q { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); }
+.own-q .iv-answer { margin-top: 0; }
+.own-q .iv-answer textarea { min-height: 64px; }
+.own-q [data-cq-remove] { align-self: flex-start; margin-top: 8px; }
+.own-answer { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); white-space: pre-line; }
+@media print { #add-own-question, [data-cq-remove] { display: none !important; } }

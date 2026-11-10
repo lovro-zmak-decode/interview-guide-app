@@ -74,7 +74,8 @@ SUMMARY_PROMPT_VARIABLES = [
         "name": "questions_and_answers",
         "description": (
             "Every question in the guide, each followed by its guidance and the interviewer's "
-            "notes on how the candidate answered."
+            "notes on how the candidate answered, plus any extra questions the interviewer "
+            "wrote themselves with their notes."
         ),
     },
     {"name": "live_notes", "description": "The interviewer's free-form notes taken during the interview."},

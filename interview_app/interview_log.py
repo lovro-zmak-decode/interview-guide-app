@@ -4,6 +4,7 @@ Helpers for a user's interview notes on a guide (see models.InterviewLog).
 `data_json` holds one JSON object:
 
     answers          {"warmup:0": "text", ...}   notes per question, keyed by section:index
+    custom_questions [{"question": "...", "answer": "..."}]   the interviewer's own extra questions
     live_notes       free-form notes taken during the interview
     evaluation       {"0": {"grade": "4", "note": "..."}}   keyed by Quick evaluation row index
     recommendation   the interviewer's overall recommendation (one of the guide's scale options)
@@ -31,6 +32,7 @@ QUESTION_SECTIONS = [
 
 GRADES = {"1", "2", "3", "4", "5"}
 SECOND_ROUND_CHOICES = {"DA", "NE"}
+MAX_CUSTOM_QUESTIONS = 30
 MAX_FIELD_CHARS = 20_000
 MAX_BODY_BYTES = 200_000
 
@@ -38,6 +40,7 @@ MAX_BODY_BYTES = 200_000
 def empty_data() -> dict:
     return {
         "answers": {},
+        "custom_questions": [],
         "live_notes": "",
         "evaluation": {},
         "recommendation": "",
@@ -96,6 +99,20 @@ def merge_update(data: dict, payload: dict, summary: InterviewSummary) -> dict:
             else:
                 data["answers"].pop(key, None)
 
+    if "custom_questions" in payload:
+        items = payload["custom_questions"]
+        if not isinstance(items, list) or len(items) > MAX_CUSTOM_QUESTIONS:
+            raise ValueError("custom_questions must be a short list")
+        cleaned = []
+        for item in items:
+            if not isinstance(item, dict):
+                raise ValueError("each custom question must be an object")
+            question = _text(item.get("question", ""), "question").strip()
+            answer = _text(item.get("answer", ""), "answer").strip()
+            if question or answer:
+                cleaned.append({"question": question, "answer": answer})
+        data["custom_questions"] = cleaned
+
     if "live_notes" in payload:
         data["live_notes"] = _text(payload["live_notes"], "live_notes")
 
@@ -147,12 +164,13 @@ def merge_update(data: dict, payload: dict, summary: InterviewSummary) -> dict:
 
 
 def shareable(data: dict) -> dict:
-    """The part of someone's notes other interviewers may see: the answers and
-    the live notes. The end-of-interview scoring (grades and their notes, the
+    """The part of someone's notes other interviewers may see: the answers, their
+    own extra questions and the live notes. The end-of-interview scoring (grades and their notes, the
     overall recommendation, the second-round choice and the summary) stays
     private to the person who wrote it."""
     shared = empty_data()
     shared["answers"] = data["answers"]
+    shared["custom_questions"] = data["custom_questions"]
     shared["live_notes"] = data["live_notes"]
     return shared
 
@@ -160,6 +178,7 @@ def shareable(data: dict) -> dict:
 def has_content(data: dict) -> bool:
     return bool(
         data["answers"]
+        or data["custom_questions"]
         or data["live_notes"].strip()
         or data["recommendation"]
         or data["second_round"]
@@ -177,7 +196,9 @@ def store_summary(data: dict, summary_text: str, suggestions: str) -> None:
     }
 
 
-def questions_and_answers_text(summary: InterviewSummary, answers: dict) -> str:
+def questions_and_answers_text(
+    summary: InterviewSummary, answers: dict, custom_questions: list | None = None
+) -> str:
     blocks = []
     for key, attr, label in QUESTION_SECTIONS:
         questions = getattr(summary, attr)
@@ -189,6 +210,12 @@ def questions_and_answers_text(summary: InterviewSummary, answers: dict) -> str:
             lines.append(f"{i + 1}. Question: {q.question}")
             lines.append(f"   Guidance for the interviewer: {q.guidance}")
             lines.append(f"   Interviewer's notes on the answer: {note or '(no notes)'}")
+        blocks.append("\n".join(lines))
+    if custom_questions:
+        lines = ["## Questions the interviewer added themselves"]
+        for i, item in enumerate(custom_questions, start=1):
+            lines.append(f"{i}. Question: {item.get('question') or '(no question text)'}")
+            lines.append(f"   Interviewer's notes on the answer: {item.get('answer') or '(no notes)'}")
         blocks.append("\n".join(lines))
     return "\n\n".join(blocks) or "(no questions)"
 
