@@ -58,3 +58,8 @@ migrate_to_postgres.py
 migrate_to_railway.sh
 MIGRATE_DB.md
 MIGRATE_TO_RAILWAY.md
+
+# Claude Code local files
+.claude/settings.local.json
+.claude/worktrees/
+.claude/skills/SKILL-AUDIT-*.md
