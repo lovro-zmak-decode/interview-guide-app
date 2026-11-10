@@ -27,26 +27,27 @@ from __future__ import annotations
 from datetime import datetime
 
 from docx import Document
-from docx.shared import Pt
+from docx.document import Document as DocxDocument
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.shared import Pt
 
 from .schema import (
-    InterviewSummary,
-    InterviewQuestion,
     MINUTES_PER_QUESTION,
     WRAP_UP_MINUTES,
+    InterviewQuestion,
+    InterviewSummary,
     estimate_section_minutes,
     estimate_total_minutes,
 )
 
 
-def _add_section_heading(doc: Document, text: str, minutes: int | None = None, level: int = 1):
+def _add_section_heading(doc: DocxDocument, text: str, minutes: int | None = None, level: int = 1):
     heading = f"{text} (~{minutes} min)" if minutes is not None else text
     return doc.add_heading(heading, level=level)
 
 
 def _add_question_block(
-    doc: Document, label: str, item: InterviewQuestion, notes: list[tuple[str | None, str]] | None = None
+    doc: DocxDocument, label: str, item: InterviewQuestion, notes: list[tuple[str | None, str]] | None = None
 ) -> None:
     q_para = doc.add_paragraph()
     q_run = q_para.add_run(f"{label}. {item.question}")
@@ -69,7 +70,7 @@ def _add_question_block(
         note_para.paragraph_format.left_indent = Pt(18)
 
 
-def _add_interview_outcome(doc: Document, log: dict, name: str | None = None) -> None:
+def _add_interview_outcome(doc: DocxDocument, log: dict, name: str | None = None) -> None:
     """Summary, second-round choice and suggestions, placed at the very top of
     a report that has interview notes. The labels are Croatian because the
     summary itself is written in the language of the interview."""
@@ -115,7 +116,8 @@ def build_docx(
     generated_at = generated_at or datetime.now()
     logs = logs or []
     multi = len(logs) > 1
-    scorers = [l for l in logs if l.get("evaluation") or l.get("recommendation") or l.get("summary") or l.get("second_round")]
+    scoring_keys = ("evaluation", "recommendation", "summary", "second_round")
+    scorers = [entry for entry in logs if any(entry.get(key) for key in scoring_keys)]
 
     def who(log: dict) -> str | None:
         return log.get("name") if multi else None
@@ -124,7 +126,7 @@ def build_docx(
         return log.get("name") if len(scorers) > 1 else None
 
     def notes_for(key: str) -> list[tuple[str | None, str]]:
-        return [(who(l), l["answers"][key]) for l in logs if l.get("answers", {}).get(key)]
+        return [(who(entry), entry["answers"][key]) for entry in logs if entry.get("answers", {}).get(key)]
 
     title = doc.add_heading(summary.title, level=0)
     title.alignment = WD_ALIGN_PARAGRAPH.LEFT
@@ -182,16 +184,15 @@ def build_docx(
         p_counter += 1
 
     # 5. Teamwork and working style
-    _add_section_heading(doc, "5. Teamwork and working style", estimate_section_minutes(len(summary.teamwork_questions)))
+    teamwork_minutes = estimate_section_minutes(len(summary.teamwork_questions))
+    _add_section_heading(doc, "5. Teamwork and working style", teamwork_minutes)
     for i, item in enumerate(summary.teamwork_questions):
         _add_question_block(doc, f"P{p_counter}", item, notes_for(f"teamwork:{i}"))
         p_counter += 1
 
     # 6. Candidate questions and wrap-up
     _add_section_heading(doc, "6. Candidate questions and wrap-up", WRAP_UP_MINUTES)
-    doc.add_paragraph(
-        "Leave time for their questions. Also check on practical things:"
-    )
+    doc.add_paragraph("Leave time for their questions. Also check on practical things:")
     for note in summary.closing_notes:
         doc.add_paragraph(note, style="List Bullet")
 
@@ -204,7 +205,7 @@ def build_docx(
     # 7. Quick evaluation
     doc.add_heading("7. Quick evaluation", level=1)
     doc.add_paragraph("Do immediately after the interview.")
-    recommendations = [(who_scoring(l), l["recommendation"]) for l in logs if l.get("recommendation")]
+    recommendations = [(who_scoring(entry), entry["recommendation"]) for entry in logs if entry.get("recommendation")]
     if recommendations:
         for name, value in recommendations:
             doc.add_paragraph(f"Overall recommendation{f' ({name})' if name else ''}: {value}")
@@ -244,10 +245,10 @@ def build_docx(
             q_para = doc.add_paragraph()
             q_para.add_run(f"O{i}. {item.get('question') or '(no question text)'}").bold = True
             if item.get("answer"):
-                note = doc.add_paragraph()
-                note.add_run("Notes on the answer: ").bold = True
-                note.add_run(item["answer"])
-                note.paragraph_format.left_indent = Pt(18)
+                answer_para = doc.add_paragraph()
+                answer_para.add_run("Notes on the answer: ").bold = True
+                answer_para.add_run(item["answer"])
+                answer_para.paragraph_format.left_indent = Pt(18)
 
     # Reference appendix — the interviewer's full original Questions DB
     # selection, unnumbered and placed at the very end so it doesn't compete

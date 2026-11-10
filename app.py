@@ -19,38 +19,48 @@ from __future__ import annotations
 
 import io
 import json
+import logging
 import os
 import tempfile
 import uuid
-import logging
 from collections import OrderedDict
 from datetime import datetime
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify, render_template, request, send_file, flash, redirect, url_for
-from flask_login import LoginManager, current_user, login_required
+from flask import flash, jsonify, redirect, render_template, request, send_file, url_for
+from flask_login import current_user, login_required
 from sqlalchemy import inspect, text
 
-from interview_app.auth import auth_bp, admin_required
+from interview_app import interview_log as ilog
+from interview_app.auth import admin_required, auth_bp
+from interview_app.docx_generator import build_docx
 from interview_app.extractors import extract_text_from_file, gather_research
-from interview_app.llm_providers import get_provider, available_providers, LLMConfigError
-from interview_app.models import GeneratedGuide, GuideDocument, InterviewLog, InterviewRole, Question, QuestionGroup, SystemPrompt, User, db
+from interview_app.llm_providers import LLMConfigError, available_providers, get_provider
+from interview_app.models import (
+    GeneratedGuide,
+    GuideDocument,
+    InterviewLog,
+    InterviewRole,
+    Question,
+    QuestionGroup,
+    SystemPrompt,
+    User,
+    db,
+)
 from interview_app.question_bank import qb_bp
 from interview_app.roles import roles_bp
-from interview_app.shared_questions import shared_qb_bp
-from interview_app.system_prompts import system_prompts_bp
-from interview_app.storage import get_storage
-from interview_app.summarizer import generate_interview_debrief, generate_interview_summary, SummaryGenerationError
-from interview_app import interview_log as ilog
-from interview_app.docx_generator import build_docx
 from interview_app.schema import (
+    WRAP_UP_MINUTES,
     CuratedQuestionGroup,
     InterviewQuestion,
     InterviewSummary,
-    WRAP_UP_MINUTES,
     estimate_section_minutes,
     estimate_total_minutes,
 )
+from interview_app.shared_questions import shared_qb_bp
+from interview_app.storage import get_storage
+from interview_app.summarizer import SummaryGenerationError, generate_interview_debrief, generate_interview_summary
+from interview_app.system_prompts import system_prompts_bp
 
 load_dotenv()
 
@@ -69,7 +79,8 @@ INTERVIEW_AUTOSAVE_SECONDS = 30
 INTERVIEW_POLL_SECONDS = 5
 
 # Create app using factory function
-from interview_app import create_app
+from interview_app import create_app  # noqa: E402
+
 app = create_app()
 
 
@@ -117,10 +128,16 @@ def _store_guide_documents(guide: GeneratedGuide, uploads: list[tuple[str, str, 
         key = f"guides/{guide.id}/{kind}{ext}"
         content_type = DOCUMENT_CONTENT_TYPES.get(ext, "application/octet-stream")
         storage.save(key, data, content_type)
-        db.session.add(GuideDocument(
-            guide_id=guide.id, kind=kind, filename=os.path.basename(filename)[:255] or f"{kind}{ext}",
-            content_type=content_type, storage_key=key, size=len(data),
-        ))
+        db.session.add(
+            GuideDocument(
+                guide_id=guide.id,
+                kind=kind,
+                filename=os.path.basename(filename)[:255] or f"{kind}{ext}",
+                content_type=content_type,
+                storage_key=key,
+                size=len(data),
+            )
+        )
 
 
 def _copy_guide_documents(source: GeneratedGuide, target: GeneratedGuide) -> None:
@@ -151,9 +168,7 @@ def _render_index(prefill: dict | None = None):
     # Most recently updated first — the top one is also what generation falls
     # back to if no prompt is explicitly picked, so it doubles as the sane
     # default selection in the dropdown.
-    system_prompts = (
-        SystemPrompt.query.filter_by(type="technical").order_by(SystemPrompt.updated_at.desc()).all()
-    )
+    system_prompts = SystemPrompt.query.filter_by(type="technical").order_by(SystemPrompt.updated_at.desc()).all()
     return render_template(
         "index.html",
         providers=available_providers(),
@@ -218,7 +233,7 @@ def _participant_logs(guide: GeneratedGuide, full: bool = False) -> list[dict]:
     nobody is influenced mid-interview. Once both are done everything is
     visible. `full` skips the hiding (used for the Word export)."""
     logs = InterviewLog.query.filter_by(guide_id=guide.id).order_by(InterviewLog.id).all()
-    i_am_interviewing = any(l.started for l in logs if l.user_id == current_user.id)
+    i_am_interviewing = any(entry.started for entry in logs if entry.user_id == current_user.id)
     out = []
     for log in logs:
         data = ilog.parse_data(log.data_json)
@@ -375,12 +390,10 @@ def _collect_curated_groups(question_ids: list[int]) -> list[tuple[str, list[Que
 
     visible_group_ids = {g.id for g in QuestionGroup.visible_to(current_user).all()}
     questions = (
-        Question.query.filter(Question.id.in_(question_ids))
-        .order_by(Question.group_id, Question.position)
-        .all()
+        Question.query.filter(Question.id.in_(question_ids)).order_by(Question.group_id, Question.position).all()
     )
 
-    grouped: "OrderedDict[str, list[Question]]" = OrderedDict()
+    grouped: OrderedDict[str, list[Question]] = OrderedDict()
     for q in questions:
         if q.group_id not in visible_group_ids:
             continue
@@ -628,9 +641,7 @@ def download(filename: str):
     # The report is the complete record: everyone's notes and everyone's
     # scoring, labelled by name.
     logs = [
-        {"name": p["name"], **p["data"]}
-        for p in _participant_logs(guide, full=True)
-        if ilog.has_content(p["data"])
+        {"name": p["name"], **p["data"]} for p in _participant_logs(guide, full=True) if ilog.has_content(p["data"])
     ]
     buffer = io.BytesIO()
     build_docx(
@@ -652,13 +663,15 @@ def guide_file(guide_id: int, kind: str):
         flash("You don't have access to this guide.")
         return redirect(url_for("history"))
     doc = next((d for d in guide.documents if d.kind == kind), None)
-    data = get_storage().load(doc.storage_key) if doc else None
-    if data is None:
+    data = get_storage().load(doc.storage_key) if doc is not None else None
+    if doc is None or data is None:
         flash("That file is not stored for this guide.")
         return redirect(url_for("history_view", guide_id=guide.id))
     return send_file(
-        io.BytesIO(data), mimetype=doc.content_type or "application/octet-stream",
-        as_attachment=True, download_name=doc.filename,
+        io.BytesIO(data),
+        mimetype=doc.content_type or "application/octet-stream",
+        as_attachment=True,
+        download_name=doc.filename,
     )
 
 
@@ -689,8 +702,9 @@ def _migrate_user_table() -> None:
         return  # already on the new schema
 
     with db.engine.begin() as conn:
-        conn.execute(text(
-            """
+        conn.execute(
+            text(
+                """
             CREATE TABLE user_migrated (
                 id INTEGER PRIMARY KEY,
                 email VARCHAR(255) UNIQUE NOT NULL,
@@ -699,10 +713,9 @@ def _migrate_user_table() -> None:
                 created_at DATETIME
             )
             """
-        ))
-        rows = conn.execute(text(
-            "SELECT id, username, password_hash, is_admin, created_at FROM user"
-        )).fetchall()
+            )
+        )
+        rows = conn.execute(text("SELECT id, username, password_hash, is_admin, created_at FROM user")).fetchall()
         for row in rows:
             email = "lovro.zmak@decode.agency" if row.username == "lovrozmak" else row.username
             role = "superadmin" if row.is_admin else "user"

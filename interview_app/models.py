@@ -22,7 +22,7 @@ Database models.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from flask_login import UserMixin
 from flask_sqlalchemy import SQLAlchemy
@@ -40,11 +40,9 @@ class User(db.Model, UserMixin):
     email = db.Column(db.String(255), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(20), nullable=False, default="user")
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
 
-    question_groups = db.relationship(
-        "QuestionGroup", backref="owner", cascade="all, delete-orphan"
-    )
+    question_groups = db.relationship("QuestionGroup", backref="owner", cascade="all, delete-orphan")
 
     def set_password(self, password: str) -> None:
         self.password_hash = generate_password_hash(password, method="pbkdf2:sha256")
@@ -71,7 +69,7 @@ class QuestionGroup(db.Model):
     visibility = db.Column(db.String(20), nullable=False, default="private")  # 'private' | 'shared'
     owner_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     position = db.Column(db.Integer, default=0)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
 
     questions = db.relationship(
         "Question",
@@ -83,7 +81,7 @@ class QuestionGroup(db.Model):
     def is_shared(self) -> bool:
         return self.visibility == "shared"
 
-    def can_manage(self, user: "User") -> bool:
+    def can_manage(self, user: User) -> bool:
         """Whether `user` may rename/delete this group, or add/edit/remove its
         questions. Shared ("Shared Questions DB") groups are admin-managed
         only; private groups ("Own Questions DB") are owner-only."""
@@ -92,7 +90,7 @@ class QuestionGroup(db.Model):
         return self.owner_id == user.id
 
     @staticmethod
-    def visible_to(user: "User"):
+    def visible_to(user: User):
         """Groups selectable when generating a guide: the shared DB, plus the
         user's own private groups."""
         return QuestionGroup.query.filter(
@@ -100,16 +98,14 @@ class QuestionGroup(db.Model):
         ).order_by(QuestionGroup.position, QuestionGroup.id)
 
     @staticmethod
-    def own_for(user: "User"):
+    def own_for(user: User):
         return QuestionGroup.query.filter_by(owner_id=user.id, visibility="private").order_by(
             QuestionGroup.position, QuestionGroup.id
         )
 
     @staticmethod
     def shared():
-        return QuestionGroup.query.filter_by(visibility="shared").order_by(
-            QuestionGroup.position, QuestionGroup.id
-        )
+        return QuestionGroup.query.filter_by(visibility="shared").order_by(QuestionGroup.position, QuestionGroup.id)
 
 
 class Question(db.Model):
@@ -144,7 +140,7 @@ class GeneratedGuide(db.Model):
     provider_used = db.Column(db.String(50))
     docx_filename = db.Column(db.String(255), nullable=False)
     summary_json = db.Column(db.Text, nullable=False)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
 
     # Inputs the guide was generated from, kept so it can be cloned and
     # regenerated with different settings. Null on guides created before
@@ -157,10 +153,8 @@ class GeneratedGuide(db.Model):
     user = db.relationship("User", backref=db.backref("generated_guides", cascade="all, delete-orphan"))
 
     @staticmethod
-    def list_for(user: "User"):
-        return GeneratedGuide.query.filter_by(user_id=user.id).order_by(
-            GeneratedGuide.created_at.desc()
-        )
+    def list_for(user: User):
+        return GeneratedGuide.query.filter_by(user_id=user.id).order_by(GeneratedGuide.created_at.desc())
 
     @staticmethod
     def list_all():
@@ -181,7 +175,7 @@ class StoredFile(db.Model):
     content_type = db.Column(db.String(255))
     size = db.Column(db.Integer)
     data = db.Column(db.LargeBinary, nullable=False)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
 
 
 class GuideDocument(db.Model):
@@ -198,7 +192,7 @@ class GuideDocument(db.Model):
     content_type = db.Column(db.String(255))
     storage_key = db.Column(db.String(512), nullable=False)
     size = db.Column(db.Integer)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
 
     guide = db.relationship(
         "GeneratedGuide",
@@ -225,15 +219,15 @@ class InterviewLog(db.Model):
     data_json = db.Column(db.Text, nullable=False, default="{}")
     updated_at = db.Column(
         db.DateTime,
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
     )
 
     guide = db.relationship("GeneratedGuide", backref=db.backref("interview_logs", cascade="all, delete-orphan"))
     user = db.relationship("User", backref=db.backref("interview_logs", cascade="all, delete-orphan"))
 
     @staticmethod
-    def for_guide_and_user(guide_id: int, user_id: int) -> "InterviewLog | None":
+    def for_guide_and_user(guide_id: int, user_id: int) -> InterviewLog | None:
         return InterviewLog.query.filter_by(guide_id=guide_id, user_id=user_id).first()
 
 
@@ -249,14 +243,14 @@ class InterviewRole(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), unique=True, nullable=False)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
 
     @staticmethod
     def all_sorted():
         return InterviewRole.query.order_by(InterviewRole.name).all()
 
     @staticmethod
-    def get_or_create(name: str) -> "InterviewRole":
+    def get_or_create(name: str) -> InterviewRole:
         """Case-insensitive lookup; creates the tag if it doesn't exist yet."""
         name = name.strip()
         existing = InterviewRole.query.filter(db.func.lower(InterviewRole.name) == name.lower()).first()
@@ -295,11 +289,11 @@ class SystemPrompt(db.Model):
     type = db.Column(db.String(50), nullable=False, default="technical")
     content = db.Column(db.Text, nullable=False, default="")
     scoring_rows = db.Column(db.Text, nullable=False, default="")
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
     updated_at = db.Column(
         db.DateTime,
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
     )
 
     @staticmethod

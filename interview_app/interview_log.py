@@ -18,7 +18,7 @@ changes after generation, so they stay stable.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from .schema import InterviewSummary
 
@@ -65,11 +65,7 @@ def recommendation_options(summary: InterviewSummary) -> list[str]:
 
 
 def question_keys(summary: InterviewSummary) -> set[str]:
-    return {
-        f"{key}:{i}"
-        for key, attr, _ in QUESTION_SECTIONS
-        for i in range(len(getattr(summary, attr)))
-    }
+    return {f"{key}:{i}" for key, attr, _ in QUESTION_SECTIONS for i in range(len(getattr(summary, attr)))}
 
 
 def _text(value, field: str) -> str:
@@ -192,13 +188,11 @@ def store_summary(data: dict, summary_text: str, suggestions: str) -> None:
         "summary": summary_text,
         "second_round_suggestions": suggestions,
         "reviewed": False,
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
     }
 
 
-def questions_and_answers_text(
-    summary: InterviewSummary, answers: dict, custom_questions: list | None = None
-) -> str:
+def questions_and_answers_text(summary: InterviewSummary, answers: dict, custom_questions: list | None = None) -> str:
     blocks = []
     for key, attr, label in QUESTION_SECTIONS:
         questions = getattr(summary, attr)

@@ -131,6 +131,27 @@ per-request from the form as long as the corresponding key is set.
 `OPENAI_MODEL` (default `gpt-4o`) and `ANTHROPIC_MODEL` (default `claude-sonnet-4-5`) choose which model
 each provider uses, both for writing the guide and for the end-of-interview summary.
 
+## Development
+
+Install the development tools (linter, formatter, type checker, test runner) on top of the app's
+requirements:
+
+```bash
+pip install -r requirements-dev.txt
+pre-commit install        # runs ruff and basic file checks on every commit
+```
+
+| Command | Purpose |
+|---|---|
+| `ruff check .` | Lint (add `--fix` to apply the safe fixes) |
+| `ruff format .` | Format the code |
+| `mypy` | Type check `app.py` and `interview_app/` |
+| `pytest` | Run the tests on a throwaway SQLite database |
+| `TEST_DATABASE_URL=postgresql://user:pw@localhost:5432/tests pytest` | Run the same tests on PostgreSQL (the database is emptied and recreated for every test, so use a scratch database) |
+
+CI (`.github/workflows/ci.yml`) runs the lint, format check, type check and the tests on SQLite,
+plus the tests on PostgreSQL, for every pull request and every push to `main`.
+
 ## Run
 
 ```bash

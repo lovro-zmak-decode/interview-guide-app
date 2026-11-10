@@ -1,7 +1,9 @@
 import os
+
 from flask import Flask
 from flask_login import LoginManager
-from .models import db, User
+
+from .models import User, db
 
 
 def create_app(config=None):
@@ -20,7 +22,7 @@ def create_app(config=None):
         raise RuntimeError(
             f"Missing required environment variable(s): {', '.join(missing)}. Copy .env.example to .env "
             "and fill them in. Generate a secret with: "
-            "python3 -c \"import secrets; print(secrets.token_urlsafe(48))\""
+            'python3 -c "import secrets; print(secrets.token_urlsafe(48))"'
         )
     app.secret_key = os.environ["FLASK_SECRET_KEY"]
     app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024  # 20 MB
@@ -32,11 +34,11 @@ def create_app(config=None):
         if database_url.startswith(prefix):
             # Hosts hand out postgres:// or postgresql://. Name the driver we ship
             # (psycopg2) so a newer SQLAlchemy default driver is never needed.
-            database_url = "postgresql+psycopg2://" + database_url[len(prefix):]
+            database_url = "postgresql+psycopg2://" + database_url[len(prefix) :]
     if database_url.startswith("sqlite:///") and not database_url.startswith("sqlite:////"):
         # A relative SQLite path means relative to the project folder (not to
         # wherever the app was started, or Flask-SQLAlchemy's instance folder).
-        sqlite_path = os.path.join(base_dir, database_url[len("sqlite:///"):])
+        sqlite_path = os.path.join(base_dir, database_url[len("sqlite:///") :])
         os.makedirs(os.path.dirname(sqlite_path), exist_ok=True)
         database_url = "sqlite:///" + sqlite_path
     app.config["SQLALCHEMY_DATABASE_URI"] = database_url
@@ -66,7 +68,8 @@ def create_app(config=None):
 
     # Initialize Google OAuth (always available, works with or without credentials)
     try:
-        from .google_auth import init_google_oauth, google_bp
+        from .google_auth import google_bp, init_google_oauth
+
         init_google_oauth(app)
         app.register_blueprint(google_bp)
     except ImportError:

@@ -10,7 +10,7 @@ Quick guide to test the Google OAuth login flow locally.
 2. Create a new project (or use existing)
 3. Enable Google+ API:
    - APIs & Services > Library
-   - Search "Google+ API" 
+   - Search "Google+ API"
    - Click "Enable"
 
 ### 2. Create OAuth Credentials
@@ -64,7 +64,7 @@ python3 app.py
 
 ### What Happens
 
-1. **First time login**: 
+1. **First time login**:
    - User is created automatically with `role: "user"`
    - Dummy password is set (OAuth doesn't use passwords)
    - User is logged in and redirected to dashboard
