@@ -138,7 +138,7 @@ requirements:
 
 ```bash
 pip install -r requirements-dev.txt
-pre-commit install        # runs ruff and basic file checks on every commit
+python tools/git/install_hooks.py   # git hooks: ruff on commit, commit message format, no push to main
 ```
 
 | Command | Purpose |
@@ -148,6 +148,10 @@ pre-commit install        # runs ruff and basic file checks on every commit
 | `mypy` | Type check `app.py` and `interview_app/` |
 | `pytest` | Run the tests on a throwaway SQLite database |
 | `TEST_DATABASE_URL=postgresql://user:pw@localhost:5432/tests pytest` | Run the same tests on PostgreSQL (the database is emptied and recreated for every test, so use a scratch database) |
+
+More: [docs/ONBOARDING.md](docs/ONBOARDING.md) (new joiner guide), [ARCHITECTURE.md](ARCHITECTURE.md),
+[AGENTS.md](AGENTS.md) (rules for people and coding agents), the decision log in
+[docs/adr/](docs/adr/README.md), and the runbooks in [docs/runbooks/](docs/runbooks/ci.md).
 
 CI (`.github/workflows/ci.yml`) runs the lint, format check, type check and the tests on SQLite,
 plus the tests on PostgreSQL, for every pull request and every push to `main`.
