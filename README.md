@@ -117,12 +117,19 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Edit `.env` and set at least one of:
-- `ANTHROPIC_API_KEY` (for Claude)
-- `OPENAI_API_KEY` (for OpenAI)
+Edit `.env` and set:
+- `FLASK_SECRET_KEY` (required): a long random string, for example
+  `python3 -c "import secrets; print(secrets.token_urlsafe(48))"`
+- `DATABASE_URL` (required): `sqlite:///data/app.db` for local development
+- at least one of `ANTHROPIC_API_KEY` (for Claude) or `OPENAI_API_KEY` (for OpenAI)
 
-`LLM_PROVIDER` picks the default shown in the UI dropdown; you can switch providers per-request
-from the form as long as the corresponding key is set.
+The app refuses to start if `FLASK_SECRET_KEY` or `DATABASE_URL` is missing.
+
+`LLM_PROVIDER` picks the default shown in the UI dropdown (OpenAI if unset); you can switch providers
+per-request from the form as long as the corresponding key is set.
+
+`OPENAI_MODEL` (default `gpt-4o`) and `ANTHROPIC_MODEL` (default `claude-sonnet-4-5`) choose which model
+each provider uses, both for writing the guide and for the end-of-interview summary.
 
 ## Run
 

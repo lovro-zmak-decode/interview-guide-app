@@ -169,6 +169,43 @@ class GeneratedGuide(db.Model):
         return GeneratedGuide.query.order_by(GeneratedGuide.created_at.desc())
 
 
+class StoredFile(db.Model):
+    """Bytes of a file kept by the database storage backend (see
+    interview_app.storage). Nothing else should read or write this table
+    directly; go through get_storage() so the backend can be swapped."""
+
+    __tablename__ = "stored_file"
+
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(512), unique=True, nullable=False)
+    content_type = db.Column(db.String(255))
+    size = db.Column(db.Integer)
+    data = db.Column(db.LargeBinary, nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class GuideDocument(db.Model):
+    """A source file a guide was generated from (the candidate's CV or LinkedIn
+    export). Only the metadata lives here; the bytes are in the file storage
+    under `storage_key`, wherever the configured backend keeps them."""
+
+    __tablename__ = "guide_document"
+
+    id = db.Column(db.Integer, primary_key=True)
+    guide_id = db.Column(db.Integer, db.ForeignKey("generated_guide.id"), nullable=False)
+    kind = db.Column(db.String(20), nullable=False)  # 'cv' | 'linkedin'
+    filename = db.Column(db.String(255), nullable=False)
+    content_type = db.Column(db.String(255))
+    storage_key = db.Column(db.String(512), nullable=False)
+    size = db.Column(db.Integer)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    guide = db.relationship(
+        "GeneratedGuide",
+        backref=db.backref("documents", cascade="all, delete-orphan", order_by="GuideDocument.id"),
+    )
+
+
 class InterviewLog(db.Model):
     """One user's notes for one guide: how the candidate answered each
     question, free-form live notes, the Quick evaluation grades, the

@@ -44,6 +44,11 @@
 
           <div class="field" style="margin-top:20px">
             <span class="label">CV {% if prefill and prefill.has_research %}<span class="badge">Optional, already stored</span>{% else %}<span class="req" aria-hidden="true">*</span>{% endif %}</span>
+            {% if prefill and prefill.documents %}
+              <p class="hint" style="margin:0 0 8px">Stored with the guide:
+                {% for d in prefill.documents %}<a href="{{ d.url }}">{{ "CV" if d.kind == "cv" else "LinkedIn" }} ({{ d.filename }})</a>{% if not loop.last %}, {% endif %}{% endfor %}.
+                They are copied to the new guide unless you attach a new CV.</p>
+            {% endif %}
             <div class="dropzone" data-dropzone>
               <input type="file" name="cv_file" accept=".pdf,.docx,.txt" {% if not (prefill and prefill.has_research) %}required{% endif %} aria-label="Candidate CV (PDF, DOCX or TXT)">
               <span class="dropzone-icon">{{ icon("upload", 20) }}</span>
@@ -248,6 +253,7 @@
   }
   form.addEventListener('change', refresh);
   form.addEventListener('input', refresh);
+  refresh();
 
   // Loading state while extraction + the LLM call run. The submit event only
   // fires after the browser's required-field validation has passed.
