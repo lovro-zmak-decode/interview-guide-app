@@ -7,6 +7,10 @@ extend-exclude = ["venv", ".venv", "data", "uploads", "generated"]
 # E/W pycodestyle, F pyflakes, I import order, B bugbear, UP pyupgrade
 select = ["E", "W", "F", "I", "B", "UP"]
 
+[tool.ruff.lint.per-file-ignores]
+# Test data and fixtures read better on one long line.
+"tests/**" = ["E501"]
+
 [tool.mypy]
 python_version = "3.13"
 files = ["app.py", "interview_app"]
@@ -20,3 +24,5 @@ disable_error_code = ["name-defined"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+# Query.get() is used inside Flask-SQLAlchemy's own get_or_404.
+filterwarnings = ["ignore::sqlalchemy.exc.LegacyAPIWarning"]
