@@ -65,15 +65,6 @@ Your app is now configured for [Railway](https://railway.app) deployment. Here's
 - [ ] Visit your Railway URL
 - [ ] Test login (should show login form)
 
-## After Deploy
-
-**Migrate your data** (if you have existing local data):
-```bash
-python3 migrate_to_postgres.py "postgresql://user:pass@railway-host:5432/railway"
-```
-
-See [MIGRATE_DB.md](MIGRATE_DB.md) for full migration steps.
-
 ## Useful Railway Links
 
 - **Dashboard**: https://railway.app/dashboard
