@@ -1,0 +1,7 @@
+{
+  "version": "0.1.0",
+  "organization": "Interview Guide App",
+  "date": "November 2026",
+  "abstract": "Portable, tool-agnostic contract for any coding agent working in the Interview Guide App repo. Carries the way-of-working rules (branching, commits, pull requests, testing) and the project rules that cannot be inferred from the code: who may see which interview scores, how files are stored, how the model and its prompts are configured, and which settings are required. Rules are authored as atomic files under .contract/rules/ and compiled into a reference document plus a machine index for on-demand retrieval.",
+  "references": ["CLAUDE.md", "ARCHITECTURE.md", "docs/adr/README.md"]
+}

@@ -1,0 +1,456 @@
+{
+  "generated": true,
+  "count": 19,
+  "counts": {
+    "general": 7,
+    "project": 12
+  },
+  "rules": [
+    {
+      "id": "global-branching",
+      "title": "Branch before touching any file, and never commit to main",
+      "class": "general",
+      "file": ".contract/rules/general/global-branching.md",
+      "scope": [
+        "global"
+      ],
+      "impact": "CRITICAL",
+      "triggers": [
+        "branch",
+        "git checkout",
+        "start work",
+        "new task",
+        "commit to main",
+        "push to main"
+      ],
+      "appliesTo": []
+    },
+    {
+      "id": "global-commit",
+      "title": "Commit only when asked, using the Conventional format",
+      "class": "general",
+      "file": ".contract/rules/general/global-commit.md",
+      "scope": [
+        "global"
+      ],
+      "impact": "HIGH",
+      "triggers": [
+        "commit",
+        "git commit",
+        "commit message",
+        "stage changes"
+      ],
+      "appliesTo": []
+    },
+    {
+      "id": "global-pr",
+      "title": "Open a PR only when asked, with a Conventional title",
+      "class": "general",
+      "file": ".contract/rules/general/global-pr.md",
+      "scope": [
+        "global"
+      ],
+      "impact": "HIGH",
+      "triggers": [
+        "pull request",
+        "open pr",
+        "raise pr",
+        "pr title",
+        "pr body",
+        "merge"
+      ],
+      "appliesTo": []
+    },
+    {
+      "id": "global-testing",
+      "title": "Test, verify, and never weaken tests to pass",
+      "class": "general",
+      "file": ".contract/rules/general/global-testing.md",
+      "scope": [
+        "global"
+      ],
+      "impact": "HIGH",
+      "triggers": [
+        "test",
+        "tests",
+        "verify",
+        "test suite",
+        "lint",
+        "typecheck",
+        "coverage",
+        "pytest",
+        "ruff",
+        "mypy"
+      ],
+      "appliesTo": []
+    },
+    {
+      "id": "style-constants-over-literals",
+      "title": "Use constants or enums, not scattered string literals",
+      "class": "general",
+      "file": ".contract/rules/general/style-constants-over-literals.md",
+      "scope": [
+        "global"
+      ],
+      "impact": "MEDIUM",
+      "triggers": [
+        "enum",
+        "string literal",
+        "constant",
+        "status",
+        "role",
+        "kind",
+        "magic string",
+        "superadmin"
+      ],
+      "appliesTo": []
+    },
+    {
+      "id": "style-no-em-dash",
+      "title": "Never use an em dash",
+      "class": "general",
+      "file": ".contract/rules/general/style-no-em-dash.md",
+      "scope": [
+        "global"
+      ],
+      "impact": "MEDIUM",
+      "triggers": [
+        "em dash",
+        "prose",
+        "documentation",
+        "writing",
+        "punctuation"
+      ],
+      "appliesTo": []
+    },
+    {
+      "id": "style-principles",
+      "title": "KISS, DRY, YAGNI, and remove dead code",
+      "class": "general",
+      "file": ".contract/rules/general/style-principles.md",
+      "scope": [
+        "global"
+      ],
+      "impact": "MEDIUM",
+      "triggers": [
+        "kiss",
+        "dry",
+        "yagni",
+        "abstraction",
+        "dead code",
+        "refactor",
+        "simplicity",
+        "comment"
+      ],
+      "appliesTo": []
+    },
+    {
+      "id": "config-required-settings",
+      "title": "FLASK_SECRET_KEY and DATABASE_URL are required, with no defaults",
+      "class": "project",
+      "file": ".contract/rules/project/config-required-settings.md",
+      "scope": [
+        "global"
+      ],
+      "impact": "CRITICAL",
+      "triggers": [
+        "secret key",
+        "FLASK_SECRET_KEY",
+        "DATABASE_URL",
+        "environment variable",
+        "env",
+        ".env",
+        "config",
+        "settings",
+        "sqlite",
+        "postgres",
+        "psycopg2",
+        "driver"
+      ],
+      "appliesTo": [
+        "interview_app/__init__.py",
+        ".env.example"
+      ]
+    },
+    {
+      "id": "data-file-storage-interface",
+      "title": "Uploaded files go through the FileStorage interface, never the table or the disk",
+      "class": "project",
+      "file": ".contract/rules/project/data-file-storage-interface.md",
+      "scope": [
+        "global"
+      ],
+      "impact": "HIGH",
+      "triggers": [
+        "upload",
+        "file",
+        "cv",
+        "linkedin",
+        "storage",
+        "stored_file",
+        "bytes",
+        "s3",
+        "disk",
+        "uploads",
+        "generated"
+      ],
+      "appliesTo": [
+        "app.py",
+        "interview_app/storage.py"
+      ]
+    },
+    {
+      "id": "data-notes-per-person",
+      "title": "Interview notes belong to one person, and only that person edits them",
+      "class": "project",
+      "file": ".contract/rules/project/data-notes-per-person.md",
+      "scope": [
+        "global"
+      ],
+      "impact": "HIGH",
+      "triggers": [
+        "interview log",
+        "notes",
+        "interview_log",
+        "participant",
+        "owner",
+        "admin",
+        "edit",
+        "permission",
+        "access",
+        "guide access"
+      ],
+      "appliesTo": [
+        "app.py",
+        "interview_app/models.py",
+        "interview_app/interview_log.py"
+      ]
+    },
+    {
+      "id": "data-scoring-visibility",
+      "title": "Hide scores from others only while an interview is in progress, and enforce it on the server",
+      "class": "project",
+      "file": ".contract/rules/project/data-scoring-visibility.md",
+      "scope": [
+        "global"
+      ],
+      "impact": "CRITICAL",
+      "triggers": [
+        "score",
+        "scoring",
+        "grade",
+        "evaluation",
+        "recommendation",
+        "second round",
+        "summary",
+        "visibility",
+        "shareable",
+        "others",
+        "participant",
+        "hidden"
+      ],
+      "appliesTo": [
+        "app.py",
+        "interview_app/interview_log.py",
+        "templates/result.html"
+      ]
+    },
+    {
+      "id": "data-second-round-is-human",
+      "title": "The second-round recommendation is set only by the interviewer",
+      "class": "project",
+      "file": ".contract/rules/project/data-second-round-is-human.md",
+      "scope": [
+        "global"
+      ],
+      "impact": "HIGH",
+      "triggers": [
+        "second round",
+        "DA",
+        "NE",
+        "preporuka",
+        "recommendation",
+        "summary prompt",
+        "debrief",
+        "model output"
+      ],
+      "appliesTo": [
+        "interview_app/schema.py",
+        "interview_app/summarizer.py"
+      ]
+    },
+    {
+      "id": "data-word-report-from-database",
+      "title": "The Word report is built from the database on every download",
+      "class": "project",
+      "file": ".contract/rules/project/data-word-report-from-database.md",
+      "scope": [
+        "global"
+      ],
+      "impact": "MEDIUM",
+      "triggers": [
+        "docx",
+        "word",
+        "report",
+        "download",
+        "build_docx",
+        "export",
+        "generated"
+      ],
+      "appliesTo": [
+        "app.py",
+        "interview_app/docx_generator.py"
+      ]
+    },
+    {
+      "id": "llm-model-from-environment",
+      "title": "Choose the provider and model from the environment, never hardcode a model id",
+      "class": "project",
+      "file": ".contract/rules/project/llm-model-from-environment.md",
+      "scope": [
+        "global"
+      ],
+      "impact": "MEDIUM",
+      "triggers": [
+        "model",
+        "OPENAI_MODEL",
+        "ANTHROPIC_MODEL",
+        "LLM_PROVIDER",
+        "gpt",
+        "claude",
+        "provider",
+        "anthropic",
+        "openai"
+      ],
+      "appliesTo": [
+        "interview_app/llm_providers.py"
+      ]
+    },
+    {
+      "id": "llm-prompts-in-database",
+      "title": "Prompts live in the database, are chosen per use, and have no hardcoded fallback",
+      "class": "project",
+      "file": ".contract/rules/project/llm-prompts-in-database.md",
+      "scope": [
+        "global"
+      ],
+      "impact": "HIGH",
+      "triggers": [
+        "prompt",
+        "system prompt",
+        "system_prompt",
+        "template variable",
+        "PROMPT_VARIABLES",
+        "guide prompt",
+        "summary prompt",
+        "instructions"
+      ],
+      "appliesTo": [
+        "interview_app/prompts.py",
+        "interview_app/summarizer.py",
+        "interview_app/system_prompts.py"
+      ]
+    },
+    {
+      "id": "repo-decision-log",
+      "title": "Significant decisions live in docs/adr, append-only",
+      "class": "project",
+      "file": ".contract/rules/project/repo-decision-log.md",
+      "scope": [
+        "global"
+      ],
+      "impact": "MEDIUM",
+      "triggers": [
+        "decision",
+        "adr",
+        "decision log",
+        "architecture decision",
+        "why did we choose",
+        "why was this chosen",
+        "supersede",
+        "record a decision",
+        "tradeoff"
+      ],
+      "appliesTo": [
+        "docs/adr/**"
+      ]
+    },
+    {
+      "id": "repo-local-only-scripts",
+      "title": "Database transfer scripts stay on the developer's machine",
+      "class": "project",
+      "file": ".contract/rules/project/repo-local-only-scripts.md",
+      "scope": [
+        "global"
+      ],
+      "impact": "MEDIUM",
+      "triggers": [
+        "migration",
+        "migrate",
+        "transfer",
+        "copy database",
+        "script",
+        "railway",
+        "postgres",
+        "local only",
+        "export",
+        "import",
+        "seed"
+      ],
+      "appliesTo": [
+        ".gitignore"
+      ]
+    },
+    {
+      "id": "repo-pinned-actions",
+      "title": "Pin GitHub Actions to commit SHAs, and never put untrusted text in a shell line",
+      "class": "project",
+      "file": ".contract/rules/project/repo-pinned-actions.md",
+      "scope": [
+        "global"
+      ],
+      "impact": "HIGH",
+      "triggers": [
+        "github actions",
+        "workflow",
+        "uses",
+        "action",
+        "sha",
+        "pin",
+        "dependabot",
+        "ci.yml",
+        "pr title",
+        "untrusted"
+      ],
+      "appliesTo": [
+        ".github/**"
+      ]
+    },
+    {
+      "id": "web-user-text-is-never-html",
+      "title": "User text is never inserted as HTML",
+      "class": "project",
+      "file": ".contract/rules/project/web-user-text-is-never-html.md",
+      "scope": [
+        "global"
+      ],
+      "impact": "HIGH",
+      "triggers": [
+        "innerHTML",
+        "xss",
+        "escape",
+        "template",
+        "jinja",
+        "textContent",
+        "user input",
+        "notes",
+        "script",
+        "tojson"
+      ],
+      "appliesTo": [
+        "templates/**",
+        "static/**"
+      ]
+    }
+  ]
+}

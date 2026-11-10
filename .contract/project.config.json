@@ -1,0 +1,17 @@
+{
+  "$comment": "Project-specific values for the agent contract. General rule templates in .contract/templates/general/ interpolate {{placeholders}} from this file at build time.",
+  "branchTypes": ["feat", "fix", "chore", "refactor", "test", "docs"],
+  "branchFormat": "{type}/{short-slug}",
+  "protectedBranches": ["main"],
+  "commitScopes": ["app", "ui", "llm", "db", "ci", "docs", "tests", "repo", "deps"],
+  "apps": [],
+  "categories": [
+    { "prefix": "global-", "name": "Global (always applies)" },
+    { "prefix": "style-", "name": "Code Style" },
+    { "prefix": "config-", "name": "Configuration" },
+    { "prefix": "data-", "name": "Data and Interviews" },
+    { "prefix": "llm-", "name": "Language Model" },
+    { "prefix": "web-", "name": "Web UI" },
+    { "prefix": "repo-", "name": "Repo and Tooling" }
+  ]
+}
