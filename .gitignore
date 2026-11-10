@@ -52,3 +52,9 @@ generated/
 # OS
 .DS_Store
 Thumbs.db
+
+# Local-only database migration helpers (kept on the developer's machine, not in the repo)
+migrate_to_postgres.py
+migrate_to_railway.sh
+MIGRATE_DB.md
+MIGRATE_TO_RAILWAY.md
