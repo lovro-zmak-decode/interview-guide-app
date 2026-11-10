@@ -18,7 +18,7 @@ changes after generation, so they stay stable.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from .schema import InterviewSummary
 
@@ -192,7 +192,7 @@ def store_summary(data: dict, summary_text: str, suggestions: str) -> None:
         "summary": summary_text,
         "second_round_suggestions": suggestions,
         "reviewed": False,
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
     }
 
 

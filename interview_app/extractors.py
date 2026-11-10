@@ -15,16 +15,16 @@ in the final summary's context.
 
 from __future__ import annotations
 
+import logging
 import os
 import re
-import logging
 from dataclasses import dataclass, field
 from urllib.parse import urlparse
 
+import docx  # python-docx
+import pdfplumber
 import requests
 from bs4 import BeautifulSoup
-import pdfplumber
-import docx  # python-docx
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +93,7 @@ def extract_text_from_file(file_path: str) -> str:
     if ext in (".docx", ".dotx"):
         return _extract_docx_text(file_path)
     if ext == ".txt":
-        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+        with open(file_path, encoding="utf-8", errors="ignore") as f:
             return f.read()
 
     raise ValueError(f"Unsupported file format: {ext}")

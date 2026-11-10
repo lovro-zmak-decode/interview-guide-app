@@ -1,7 +1,9 @@
 import os
+
 from flask import Flask
 from flask_login import LoginManager
-from .models import db, User
+
+from .models import User, db
 
 
 def create_app(config=None):
@@ -66,7 +68,7 @@ def create_app(config=None):
 
     # Initialize Google OAuth (always available, works with or without credentials)
     try:
-        from .google_auth import init_google_oauth, google_bp
+        from .google_auth import google_bp, init_google_oauth
         init_google_oauth(app)
         app.register_blueprint(google_bp)
     except ImportError:

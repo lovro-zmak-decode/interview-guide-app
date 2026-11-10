@@ -48,7 +48,7 @@ class ClaudeProvider(LLMProvider):
             messages=[{"role": "user", "content": user_prompt}],
         )
         return "".join(
-            block.text for block in response.content if getattr(block, "type", None) == "text"
+            getattr(block, "text", "") for block in response.content if getattr(block, "type", None) == "text"
         )
 
 
@@ -84,7 +84,7 @@ _PROVIDERS = {
 
 def get_provider(name: str | None = None) -> LLMProvider:
     """Instantiate the requested provider (or the env default if none given)."""
-    key = (name or os.getenv("LLM_PROVIDER", "openai")).lower()
+    key = (name or os.getenv("LLM_PROVIDER") or "openai").lower()
     if key not in _PROVIDERS:
         raise LLMConfigError(f"Unknown LLM provider: {key}. Available: {list(_PROVIDERS)}")
     return _PROVIDERS[key]()

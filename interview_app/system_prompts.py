@@ -23,7 +23,6 @@ from .auth import admin_required
 from .models import SystemPrompt, db
 from .prompts import PROMPT_TYPES, variables_for_type
 
-
 system_prompts_bp = Blueprint("system_prompts", __name__, url_prefix="/system-prompts")
 
 
@@ -34,7 +33,7 @@ def _scoring_rows_from_form() -> str:
     areas = request.form.getlist("row_area")
     ideal_signs_list = request.form.getlist("row_ideal_signs")
     rows = []
-    for area, ideal_signs in zip(areas, ideal_signs_list):
+    for area, ideal_signs in zip(areas, ideal_signs_list, strict=False):
         area = area.strip()
         if area:
             rows.append({"area": area, "ideal_signs": ideal_signs.strip()})

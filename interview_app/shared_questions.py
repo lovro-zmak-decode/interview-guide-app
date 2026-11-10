@@ -13,7 +13,7 @@ import os
 import uuid
 
 from flask import Blueprint, current_app, flash, redirect, render_template, request, send_file, url_for
-from flask_login import current_user, login_required
+from flask_login import current_user
 
 from .auth import admin_required
 from .docx_generator import build_group_preview_docx
@@ -67,7 +67,10 @@ def import_docx():
             os.remove(tmp_path)
 
     if not parsed_groups:
-        flash("Couldn't find any group/question in the file. Check the format (Heading 2 = group, Heading 3 = question).")
+        flash(
+            "Couldn't find any group/question in the file. "
+            "Check the format (Heading 2 = group, Heading 3 = question)."
+        )
         return redirect(url_for("shared_questions.list_groups"))
 
     max_position = db.session.query(db.func.max(QuestionGroup.position)).scalar() or 0
@@ -158,7 +161,7 @@ def preview_group(group_id: int):
     generated_dir = current_app.config["GENERATED_DIR"]
     filename = f"group_preview_{group.id}_{uuid.uuid4().hex[:8]}.docx"
     path = os.path.join(generated_dir, filename)
-    build_group_preview_docx(group.name, group.questions, path)
+    build_group_preview_docx(group.name, group.questions, path)  # type: ignore[arg-type]
     return send_file(path, as_attachment=True, download_name=f"{group.name}_preview.docx")
 
 

@@ -1,10 +1,12 @@
 """Google OAuth authentication using Authlib."""
 
-import os
 import logging
+import os
+
 from authlib.integrations.flask_client import OAuth
-from flask import Flask, Blueprint, redirect, url_for, flash
+from flask import Blueprint, Flask, flash, redirect, url_for
 from flask_login import login_user
+
 from .models import User, db
 
 logger = logging.getLogger(__name__)

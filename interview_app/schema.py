@@ -16,7 +16,6 @@ with pydantic and render into the final .docx.
 
 from __future__ import annotations
 
-from typing import Optional
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -30,7 +29,7 @@ class InterviewQuestion(BaseModel):
             "Free text, can span multiple sentences/lines."
         ),
     )
-    follow_up: Optional[str] = Field(
+    follow_up: str | None = Field(
         default=None, description="Optional follow-up question that digs deeper into the topic."
     )
 
