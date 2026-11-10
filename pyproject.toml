@@ -1,0 +1,22 @@
+[tool.ruff]
+line-length = 120
+target-version = "py313"
+extend-exclude = ["venv", ".venv", "data", "uploads", "generated"]
+
+[tool.ruff.lint]
+# E/W pycodestyle, F pyflakes, I import order, B bugbear, UP pyupgrade
+select = ["E", "W", "F", "I", "B", "UP"]
+
+[tool.mypy]
+python_version = "3.13"
+files = ["app.py", "interview_app"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# Flask-SQLAlchemy builds db.Model at runtime, which mypy cannot see without a plugin.
+module = "interview_app.models"
+disable_error_code = ["name-defined"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
