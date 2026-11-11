@@ -58,6 +58,7 @@ from interview_app.schema import (
     estimate_total_minutes,
 )
 from interview_app.shared_questions import shared_qb_bp
+from interview_app.startup_lock import startup_lock
 from interview_app.storage import get_storage
 from interview_app.summarizer import SummaryGenerationError, generate_interview_debrief, generate_interview_summary
 from interview_app.system_prompts import system_prompts_bp
@@ -782,14 +783,14 @@ def _migrate_generated_guide_clone_columns() -> None:
                 conn.execute(text(f"ALTER TABLE generated_guide ADD COLUMN {name} {sql_type}"))
 
 
-with app.app_context():
+with app.app_context(), startup_lock(db.engine):
     _migrate_role_tag_table()
     db.create_all()
     _migrate_generated_guide_clone_columns()
 
 
 def init_db():
-    with app.app_context():
+    with app.app_context(), startup_lock(db.engine):
         _migrate_role_tag_table()
         db.create_all()
         _migrate_user_table()
