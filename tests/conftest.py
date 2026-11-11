@@ -17,6 +17,9 @@ _TMP_DIR = tempfile.mkdtemp(prefix="interview-tests-")
 os.environ["FLASK_SECRET_KEY"] = "test-secret-key"
 os.environ["DATABASE_URL"] = os.environ.get("TEST_DATABASE_URL") or f"sqlite:///{_TMP_DIR}/test.db"
 os.environ.pop("FILE_STORAGE", None)
+# Google sign-in is registered when the app is created, so the (fake) credentials come first.
+os.environ["GOOGLE_CLIENT_ID"] = "test-client-id.apps.googleusercontent.com"
+os.environ["GOOGLE_CLIENT_SECRET"] = "test-client-secret"
 
 import pytest  # noqa: E402
 
