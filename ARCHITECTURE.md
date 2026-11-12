@@ -34,6 +34,7 @@ browser  <--->  Flask app (app.py + interview_app/)  <--->  database (SQLite loc
 | `prompts.py`, `summarizer.py`, `schema.py` | Prompt variables, the two model calls (guide and summary), and the pydantic shapes of their output |
 | `interview_log.py` | Everything about a person's notes: shape, validation, merging, what is shareable |
 | `storage.py` | The `FileStorage` interface and its database backend |
+| `startup_lock.py` | A PostgreSQL advisory lock so only one gunicorn worker at a time creates the tables at start-up |
 | `docx_generator.py` | Builds the Word report |
 
 ## Data
