@@ -1,0 +1,32 @@
+# The pull request title follows the same Conventional format as a commit subject.
+#
+# Why: GitHub's squash merge uses the PR title as the commit subject whenever the branch holds
+# more than one commit, so an unchecked title becomes the commit message on main. This runs the
+# same validator as the commit-msg hook (ADR 0002). Fixing a title is not a push, so it re-checks
+# on every edit.
+#
+# The title is untrusted text: it enters the shell through env, never inline in the script.
+name: PR title
+
+on:
+  pull_request:
+    types: [opened, edited, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-title-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  title:
+    # `edited` fires for the body as much as the title; only run when the title moved.
+    if: github.event.action != 'edited' || github.event.changes.title != null
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Validate the title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: python3 tools/commit/validate_message.py --source=pr --text "$PR_TITLE"

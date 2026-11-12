@@ -1,0 +1,5 @@
+# Gitleaks config: the default rules, with no allowlist yet.
+# Keep any allowlist entry path-scoped, short and justified: a real key leaked anywhere else in
+# the repo must still fail the scan.
+[extend]
+useDefault = true

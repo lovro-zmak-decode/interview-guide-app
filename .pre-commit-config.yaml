@@ -1,4 +1,6 @@
-# Install once with:  pre-commit install
+# Install once with:  python tools/git/install_hooks.py
+# (it runs `pre-commit install` and also installs the native pre-push hook).
+default_install_hook_types: [pre-commit, commit-msg]
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
@@ -14,3 +16,18 @@ repos:
       - id: ruff-check
         args: [--fix]
       - id: ruff-format
+  - repo: local
+    hooks:
+      # The commit subject follows the Conventional format (global-commit).
+      - id: conventional-commit
+        name: conventional commit message
+        entry: python tools/commit/validate_message.py --source=commit
+        language: python
+        stages: [commit-msg]
+      # The generated contract files must be regenerated in the same commit as a rule change.
+      - id: agent-contract-fresh
+        name: agent contract is up to date
+        entry: python .contract/scripts/build_agents.py --check
+        language: python
+        files: ^(\.contract/|AGENTS\.md$)
+        pass_filenames: false

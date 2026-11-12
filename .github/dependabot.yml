@@ -1,0 +1,30 @@
+# Dependency updates, grouped to keep pull request noise low. Zero runner minutes.
+# Every ecosystem carries a commit-message prefix so Dependabot's own titles satisfy the
+# Conventional format in global-commit: its default ("Bump x from a to b") is not a valid type.
+# Cooldown holds every update for 7 days after release, as a guard against freshly hijacked
+# packages.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: "/"
+    commit-message:
+      prefix: "chore(deps)"
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      python-minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    commit-message:
+      prefix: "chore(ci)"
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ["*"]
