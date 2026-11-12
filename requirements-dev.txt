@@ -4,6 +4,6 @@
 ruff==0.17.4
 mypy==2.4.1
 pytest==9.2.0
-pre-commit==4.3.0
+pre-commit==4.7.0
 # Used directly by the Google sign-in tests to sign a fake ID token (also an Authlib dependency)
 cryptography==50.0.2
